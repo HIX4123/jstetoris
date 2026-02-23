@@ -29,6 +29,14 @@ export default defineConfig([
     plugins: {
       import: importPlugin,
     },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          project: ['./tsconfig.app.json', './tsconfig.node.json'],
+        },
+        node: true,
+      },
+    },
     rules: {
       'import/no-unresolved': 'error',
       'import/named': 'error',

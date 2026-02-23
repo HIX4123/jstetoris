@@ -1,20 +1,71 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title></title>
+    <title>Tetris</title>
   </head>
   <body>
-    <main class="app">
-      <h1>Vite + TypeScript + SCSS</h1>
-      <div class="card">
-        <button id="counter" type="button">count is 0</button>
-        <p>
-          Edit <code>src/main.ts</code> and save to test HMR
-        </p>
-      </div>
-    </main>
+    <div id="app">
+      <main class="layout">
+        <aside class="side-panel side-panel-left" aria-label="왼쪽 정보 패널">
+          <section class="stats-hud" aria-label="점수 패널">
+            <p class="stats-hud-title">Score</p>
+            <p class="stats-hud-score"><span id="score-value">0</span></p>
+            <p class="stats-hud-high-score">High Score <span id="high-score-value">0</span></p>
+            <div class="stats-divider" aria-hidden="true"></div>
+            <div class="stats-mini-list">
+              <p class="stats-mini-item">Level <span id="level-value">1</span></p>
+              <p class="stats-mini-item">Lines <span id="lines-value">0</span></p>
+              <p class="stats-mini-item">Goal <span id="goal-value">10</span></p>
+            </div>
+          </section>
+
+          <section class="panel-card settings-panel" aria-label="핸들링 설정">
+            <h2>Handling</h2>
+            <label for="das-input">DAS (ms)</label>
+            <input id="das-input" type="number" step="1" />
+
+            <label for="arr-input">ARR (ms)</label>
+            <input id="arr-input" type="number" step="1" />
+
+            <label for="sdf-input">SDF (G)</label>
+            <input id="sdf-input" type="number" step="0.5" />
+          </section>
+        </aside>
+
+        <div class="board-anchor">
+          <div id="board-grid" class="tetris-board" role="img" aria-label="10열 20행 게임 그리드"></div>
+          <div id="event-toast" aria-live="polite" aria-atomic="true">
+            <p id="combo-toast" class="event-toast-item" hidden></p>
+            <p id="b2b-toast" class="event-toast-item" hidden></p>
+          </div>
+        </div>
+        <div class="button-row">
+          <button id="start-btn" type="button">Start</button>
+          <button id="pause-btn" type="button">Pause</button>
+          <button id="restart-btn" type="button">Restart</button>
+        </div>
+
+        <aside class="side-panel side-panel-right" aria-label="오른쪽 미리보기 패널">
+          <section class="preview-panel" aria-label="다음 블록 패널">
+            <h2>Next</h2>
+            <div id="next-list" class="next-list">
+              <div class="preview-grid next-grid" data-next-index="0"></div>
+              <div class="preview-grid next-grid" data-next-index="1"></div>
+              <div class="preview-grid next-grid" data-next-index="2"></div>
+              <div class="preview-grid next-grid" data-next-index="3"></div>
+              <div class="preview-grid next-grid" data-next-index="4"></div>
+            </div>
+          </section>
+
+          <section class="preview-panel" aria-label="홀드 블록 패널">
+            <h2>Hold</h2>
+            <div id="hold-grid" class="preview-grid"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

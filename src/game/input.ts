@@ -87,10 +87,8 @@ export const createInputController = ({ target, dispatch, getHandling, isRunning
 
     event.preventDefault();
 
-    if (pressed.has(event.code)) {
-      if (event.code === 'ArrowLeft' || event.code === 'ArrowRight' || event.code === 'ArrowDown') {
-        return;
-      }
+    if (event.repeat || pressed.has(event.code)) {
+      return;
     }
 
     pressed.add(event.code);

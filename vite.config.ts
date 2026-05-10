@@ -15,7 +15,7 @@ const terserOptions: MinifyOptions = {
     drop_debugger: true,
     pure_funcs: ['console.log', 'console.info', 'console.debug'],
   },
-  mangle: true, // 식별자 축소 활성화
+  mangle: false, // 식별자 축소 비활성화
   keep_fnames: true,
   keep_classnames: true,
   format: {

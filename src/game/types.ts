@@ -37,6 +37,27 @@ export interface GameConfig {
 export interface EngineConfig {
   handling?: Partial<HandlingConfig>;
   random?: () => number;
+  initialBoard?: (PieceType | null)[][];
+}
+
+export interface AttackEvent {
+  lines: number;
+  tspin: TSpinType;
+  b2bActive: boolean;
+  combo: number;
+  perfectClear: boolean;
+  surgeAttack: number;
+}
+
+export interface AttackBreakdown {
+  baseAttack: number;
+  comboAttack: number;
+  b2bAttack: number;
+  allClearAttack: number;
+  surgeAttack: number;
+  total: number;
+  difficult: boolean;
+  keepsB2B: boolean;
 }
 
 export interface ScoringEvent {
@@ -54,11 +75,21 @@ export interface ScoreBreakdown {
   base: number;
   b2bBonus: number;
   comboBonus: number;
-  perfectClearBonus: number;
+  allClearBonus: number;
   dropBonus: number;
   total: number;
   difficult: boolean;
   keepsB2B: boolean;
+}
+
+export interface ClearFeedback {
+  id: number;
+  lines: 1 | 2 | 3 | 4;
+  tspin: TSpinType;
+  perfectClear: boolean;
+  combo: number;
+  b2bChain: number;
+  difficult: boolean;
 }
 
 export type GameAction =
@@ -88,6 +119,7 @@ export interface GameSnapshot {
   goal: number;
   combo: number;
   b2bChain: number;
+  lastClearFeedback: ClearFeedback | null;
   handling: HandlingConfig;
 }
 

@@ -56,6 +56,33 @@ body {
   overflow: hidden;
 }
 
+.tetris-board::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 0.12rem solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tetris-board.is-b2b-shaking {
+  animation: b2b-board-shake 180ms ease-out;
+  will-change: transform;
+}
+
+.tetris-board.is-clear-pulsing::before,
+.tetris-board.is-clear-pulsing-strong::before {
+  animation: clear-board-pulse 260ms ease-out;
+  background: var(--clear-pulse-bg, oklch(82% 0.12 195deg / 16%));
+  border-color: var(--clear-pulse-line, oklch(70% 0.16 195deg / 72%));
+}
+
+.tetris-board.is-clear-pulsing-strong::before {
+  --clear-pulse-bg: oklch(88% 0.18 95deg / 22%);
+  --clear-pulse-line: oklch(76% 0.18 95deg / 86%);
+}
+
 .tetris-board.is-paused::after {
   content: 'PAUSED';
   position: absolute;
@@ -69,6 +96,49 @@ body {
   text-shadow: 0 0 0.4rem oklch(100% 0 0deg / 70%);
   pointer-events: none;
   z-index: 2;
+}
+
+@keyframes b2b-board-shake {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  18% {
+    transform: translate3d(-4px, 0, 0);
+  }
+
+  36% {
+    transform: translate3d(4px, 0, 0);
+  }
+
+  54% {
+    transform: translate3d(-3px, 0, 0);
+  }
+
+  72% {
+    transform: translate3d(2px, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes clear-board-pulse {
+  0% {
+    opacity: 0;
+    box-shadow: inset 0 0 0 0 oklch(100% 0 0deg / 0%);
+  }
+
+  28% {
+    opacity: 1;
+    box-shadow: inset 0 0 0 0.16rem var(--clear-pulse-line, oklch(70% 0.16 195deg / 72%));
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow: inset 0 0 0 0.45rem oklch(100% 0 0deg / 0%);
+  }
 }
 
 .cell,
@@ -186,6 +256,29 @@ button {
   line-height: 1;
 }
 
+#score-value {
+  display: inline-block;
+  transform-origin: left center;
+}
+
+#score-value.is-score-popping {
+  animation: score-pop 180ms ease-out;
+}
+
+@keyframes score-pop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: translateY(-0.08rem) scale(1.08);
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
 .stats-hud-high-score {
   font-size: 0.84rem;
   color: var(--muted);
@@ -250,6 +343,15 @@ button {
   letter-spacing: 0.04em;
 }
 
+.clear-toast-item {
+  border-color: oklch(60% 0.14 195deg);
+}
+
+.clear-toast-item.is-major {
+  border-color: oklch(66% 0.16 95deg);
+  background: oklch(97% 0.05 95deg);
+}
+
 .preview-grid {
   width: 7rem;
   aspect-ratio: 1 / 1;
@@ -304,6 +406,19 @@ button {
     grid-template-columns: 1fr;
     grid-template-rows: none;
   }
+
+  #event-toast {
+    left: 50%;
+    bottom: 0.45rem;
+    width: calc(100% - 1rem);
+    transform: translateX(-50%);
+    justify-items: center;
+  }
+
+  .event-toast-item {
+    max-width: 100%;
+    text-align: center;
+  }
 }
 
 @media (max-width: 640px) {
@@ -317,5 +432,15 @@ button {
 
   .event-toast-item {
     font-size: 0.9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tetris-board.is-b2b-shaking,
+  .tetris-board.is-clear-pulsing::before,
+  .tetris-board.is-clear-pulsing-strong::before,
+  #score-value.is-score-popping {
+    animation: none;
+    will-change: auto;
   }
 }

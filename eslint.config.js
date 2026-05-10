@@ -22,7 +22,7 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        project: ['./tsconfig.app.json', './tsconfig.node.json'],
+        project: ['./tsconfig.app.json', './tsconfig.node.json', './tsconfig.test.json'],
         tsconfigRootDir,
       },
     },
@@ -32,7 +32,7 @@ export default defineConfig([
     settings: {
       'import/resolver': {
         typescript: {
-          project: ['./tsconfig.app.json', './tsconfig.node.json'],
+          project: ['./tsconfig.app.json', './tsconfig.node.json', './tsconfig.test.json'],
         },
         node: true,
       },

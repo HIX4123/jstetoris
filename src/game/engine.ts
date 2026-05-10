@@ -1,9 +1,10 @@
 import { attemptSrsPlusRotation } from './rotation/srsPlus';
-import { calculateScore } from './scoring';
+import { calculateAttack, calculateScore, keepsBackToBack } from './scoring';
 import { DEFAULT_HANDLING, normalizeHandling } from './storage';
 
 import type {
   ActivePiece,
+  ClearFeedback,
   EngineConfig,
   GameAction,
   GameEngine,
@@ -24,6 +25,7 @@ export const NEXT_PREVIEW_COUNT = 5;
 const FRAME_MS = 1000 / 60;
 const LOCK_DELAY_MS = 500;
 const LOCK_RESET_LIMIT = 15;
+const SURGE_START_B2B_CHAIN = 4;
 const SPAWN_X = 3;
 const SPAWN_Y = 18;
 
@@ -40,11 +42,15 @@ interface InternalState {
   queue: PieceType[];
   bag: PieceType[];
   score: number;
+  attackSent: number;
   lines: number;
   level: number;
   goal: number;
   combo: number;
   b2bChain: number;
+  surgeCharge: number;
+  clearFeedbackId: number;
+  lastClearFeedback: ClearFeedback | null;
   handling: typeof DEFAULT_HANDLING;
   softDropActive: boolean;
   gravityCarry: number;
@@ -54,6 +60,22 @@ interface InternalState {
 const createEmptyRow = (): (PieceType | null)[] => Array.from({ length: BOARD_WIDTH }, () => null);
 
 const createEmptyBoard = (): Board => Array.from({ length: BOARD_HEIGHT }, () => createEmptyRow());
+
+const createBoardFromRows = (rows?: (PieceType | null)[][]): Board => {
+  const board = createEmptyBoard();
+
+  if (!rows) {
+    return board;
+  }
+
+  for (let y = 0; y < Math.min(rows.length, BOARD_HEIGHT); y += 1) {
+    for (let x = 0; x < Math.min(rows[y].length, BOARD_WIDTH); x += 1) {
+      board[y][x] = rows[y][x] ?? null;
+    }
+  }
+
+  return board;
+};
 
 export const createShuffledBag = (random: () => number): PieceType[] => {
   const bag = [...PIECE_ORDER];
@@ -425,30 +447,41 @@ const clearLines = (board: Board): number => {
     return 0;
   }
 
-  for (const rowIndex of [...filledRows].reverse()) {
-    board.splice(rowIndex, 1);
-    board.unshift(createEmptyRow());
-  }
+  const filledRowSet = new Set(filledRows);
+  const remainingRows = board.filter((_, rowIndex) => !filledRowSet.has(rowIndex));
+  const emptyRows = Array.from({ length: filledRows.length }, () => createEmptyRow());
+  board.splice(0, BOARD_HEIGHT, ...emptyRows, ...remainingRows);
 
   return filledRows.length;
 };
 
 const isPerfectClear = (board: Board): boolean => board.every((row) => row.every((cell) => cell === null));
 
-const createInitialState = (random: () => number, handling = DEFAULT_HANDLING): InternalState => ({
+const surgeChargeForB2BChain = (b2bChain: number): number =>
+  b2bChain >= SURGE_START_B2B_CHAIN ? b2bChain : 0;
+
+const createInitialState = (
+  random: () => number,
+  handling = DEFAULT_HANDLING,
+  initialBoard?: (PieceType | null)[][],
+): InternalState => ({
   status: 'ready',
-  board: createEmptyBoard(),
+  board: createBoardFromRows(initialBoard),
   active: null,
   hold: null,
   canHold: true,
   queue: [],
   bag: [],
   score: 0,
+  attackSent: 0,
   lines: 0,
   level: 1,
   goal: 10,
   combo: -1,
   b2bChain: 0,
+  surgeCharge: 0,
+  clearFeedbackId: 0,
+  lastClearFeedback: null,
   handling,
   softDropActive: false,
   gravityCarry: 0,
@@ -456,7 +489,11 @@ const createInitialState = (random: () => number, handling = DEFAULT_HANDLING): 
 });
 
 export const createGameEngine = (config?: EngineConfig): GameEngine => {
-  let state = createInitialState(config?.random ?? Math.random, normalizeHandling(config?.handling ?? {}));
+  let state = createInitialState(
+    config?.random ?? Math.random,
+    normalizeHandling(config?.handling ?? {}),
+    config?.initialBoard,
+  );
 
   const fillQueue = (targetLength: number): void => {
     while (state.queue.length < targetLength) {
@@ -493,7 +530,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
   };
 
   const resetForNewRun = (): void => {
-    state = createInitialState(state.random, state.handling);
+    state = createInitialState(state.random, state.handling, config?.initialBoard);
     fillQueue(NEXT_PREVIEW_COUNT + 1);
     spawnFromQueue();
     state.status = 'running';
@@ -508,11 +545,12 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       return;
     }
 
-    if (isGrounded(state.board, state.active)) {
-      state.active.lockDelayMs = 0;
-      state.active.lockResets += 1;
-    }
+    state.active.lockDelayMs = 0;
+    state.active.lockResets += 1;
   };
+
+  const wouldLeaveGroundAfterLockResets = (wasGrounded: boolean, next: ActivePiece): boolean =>
+    wasGrounded && state.active !== null && state.active.lockResets >= LOCK_RESET_LIMIT && !isGrounded(state.board, next);
 
   const tryShift = (dx: number, dy: number, fromPlayerInput: boolean): boolean => {
     if (!state.active) {
@@ -530,6 +568,10 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     }
 
     const wasGrounded = isGrounded(state.board, state.active);
+
+    if (fromPlayerInput && wouldLeaveGroundAfterLockResets(wasGrounded, next)) {
+      return false;
+    }
 
     state.active.x = next.x;
     state.active.y = next.y;
@@ -570,6 +612,16 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       state.combo = -1;
     }
 
+    const b2bBreaks =
+      linesCleared > 0 && state.b2bChain > 0 && !keepsBackToBack(linesCleared, tspin, perfectClear);
+    const attackBreakdown = calculateAttack({
+      lines: linesCleared,
+      tspin,
+      b2bActive: state.b2bChain > 0,
+      combo: state.combo,
+      perfectClear,
+      surgeAttack: b2bBreaks ? state.surgeCharge : 0,
+    });
     const scoreBreakdown = calculateScore({
       level: state.level,
       lines: linesCleared,
@@ -582,13 +634,30 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     });
 
     state.score += scoreBreakdown.total;
+    state.attackSent += attackBreakdown.total;
 
     if (linesCleared > 0) {
-      if (scoreBreakdown.difficult) {
+      if (perfectClear) {
+        state.b2bChain += 2;
+      } else if (attackBreakdown.difficult) {
         state.b2bChain += 1;
       } else {
         state.b2bChain = 0;
       }
+    }
+    state.surgeCharge = surgeChargeForB2BChain(state.b2bChain);
+
+    if (linesCleared > 0) {
+      state.clearFeedbackId += 1;
+      state.lastClearFeedback = {
+        id: state.clearFeedbackId,
+        lines: linesCleared as ClearFeedback['lines'],
+        tspin,
+        perfectClear,
+        combo: state.combo,
+        b2bChain: state.b2bChain,
+        difficult: attackBreakdown.difficult,
+      };
     }
 
     state.lines += linesCleared;
@@ -618,6 +687,17 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     });
 
     if (!result.success) {
+      return false;
+    }
+
+    const next = {
+      ...state.active,
+      x: result.x,
+      y: result.y,
+      rotation: result.rotation,
+    };
+
+    if (wouldLeaveGroundAfterLockResets(wasGrounded, next)) {
       return false;
     }
 
@@ -814,6 +894,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       goal: state.goal,
       combo: state.combo,
       b2bChain: state.b2bChain,
+      lastClearFeedback: state.lastClearFeedback ? { ...state.lastClearFeedback } : null,
       handling: { ...state.handling },
     };
   };

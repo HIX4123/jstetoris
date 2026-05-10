@@ -1,7 +1,7 @@
 import { NEXT_PREVIEW_COUNT } from './engine';
 import { handlingRanges } from './storage';
 
-import type { GameSnapshot, HandlingConfig, PieceType, Point } from './types';
+import type { ClearFeedback, GameSnapshot, HandlingConfig, PieceType, Point } from './types';
 
 interface RendererBindings {
   onStart: () => void;
@@ -63,6 +63,12 @@ const PREVIEW_CELLS: Record<PieceType, Point[]> = {
 
 const toneClass = (pieceType: PieceType): string => `tone-${pieceType.toLowerCase()}`;
 const TOAST_DURATION_MS = 1200;
+const LINE_CLEAR_LABELS: Record<ClearFeedback['lines'], string> = {
+  1: 'SINGLE',
+  2: 'DOUBLE',
+  3: 'TRIPLE',
+  4: 'QUAD',
+};
 
 const createCellGrid = (container: HTMLElement, count: number, className: string): HTMLDivElement[] => {
   const fragment = document.createDocumentFragment();
@@ -87,6 +93,22 @@ const setText = (node: HTMLElement, value: string): void => {
   }
 };
 
+const clearLabelFor = (feedback: ClearFeedback): string => {
+  if (feedback.perfectClear) {
+    return 'PERFECT CLEAR';
+  }
+
+  if (feedback.tspin === 'mini') {
+    return `T-SPIN MINI ${LINE_CLEAR_LABELS[feedback.lines]}`;
+  }
+
+  if (feedback.tspin === 'full') {
+    return `T-SPIN ${LINE_CLEAR_LABELS[feedback.lines]}`;
+  }
+
+  return LINE_CLEAR_LABELS[feedback.lines];
+};
+
 export const createRenderer = (): GameRenderer => {
   const boardGrid = document.querySelector<HTMLDivElement>('#board-grid');
   const nextGrids = [...document.querySelectorAll<HTMLDivElement>('.next-grid')];
@@ -97,6 +119,7 @@ export const createRenderer = (): GameRenderer => {
   const levelValue = document.querySelector<HTMLElement>('#level-value');
   const linesValue = document.querySelector<HTMLElement>('#lines-value');
   const goalValue = document.querySelector<HTMLElement>('#goal-value');
+  const clearToast = document.querySelector<HTMLElement>('#clear-toast');
   const comboToast = document.querySelector<HTMLElement>('#combo-toast');
   const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
 
@@ -117,6 +140,7 @@ export const createRenderer = (): GameRenderer => {
     !levelValue ||
     !linesValue ||
     !goalValue ||
+    !clearToast ||
     !comboToast ||
     !b2bToast ||
     !startButton ||
@@ -168,10 +192,41 @@ export const createRenderer = (): GameRenderer => {
 
   let prevCombo = -1;
   let prevB2b = 0;
+  let prevClearFeedbackId = 0;
+  let prevScore = 0;
+  let clearToastUntilMs = 0;
   let comboToastUntilMs = 0;
   let b2bToastUntilMs = 0;
   let comboToastValue = 0;
   let b2bToastValue = 0;
+
+  const restartAnimation = (element: HTMLElement, className: string): void => {
+    element.classList.remove(className);
+    element.getBoundingClientRect();
+    element.classList.add(className);
+  };
+
+  const triggerBoardPulse = (strong: boolean): void => {
+    boardGrid.classList.remove('is-clear-pulsing', 'is-clear-pulsing-strong');
+    boardGrid.getBoundingClientRect();
+    boardGrid.classList.add(strong ? 'is-clear-pulsing-strong' : 'is-clear-pulsing');
+  };
+
+  const triggerBoardShake = (): void => {
+    boardGrid.classList.remove('is-b2b-shaking');
+    boardGrid.getBoundingClientRect();
+    boardGrid.classList.add('is-b2b-shaking');
+  };
+
+  boardGrid.addEventListener('animationend', (event) => {
+    if (event.animationName === 'b2b-board-shake') {
+      boardGrid.classList.remove('is-b2b-shaking');
+    }
+
+    if (event.animationName === 'clear-board-pulse') {
+      boardGrid.classList.remove('is-clear-pulsing', 'is-clear-pulsing-strong');
+    }
+  });
 
   const bindControls = (bindings: RendererBindings): void => {
     startButton.addEventListener('click', bindings.onStart);
@@ -241,12 +296,28 @@ export const createRenderer = (): GameRenderer => {
 
     paintPreview(holdCells, snapshot.hold);
 
+    if (snapshot.score > prevScore) {
+      restartAnimation(scoreValue, 'is-score-popping');
+    }
+
     setText(scoreValue, `${snapshot.score}`);
     setText(highScoreValue, `${highScore}`);
     setText(levelValue, `${snapshot.level}`);
     setText(linesValue, `${snapshot.lines}`);
     setText(goalValue, `${snapshot.goal}`);
     boardGrid.classList.toggle('is-paused', snapshot.status === 'paused');
+
+    if (!snapshot.lastClearFeedback) {
+      prevClearFeedbackId = 0;
+    } else if (snapshot.lastClearFeedback.id !== prevClearFeedbackId) {
+      const feedback = snapshot.lastClearFeedback;
+      const strongClear = feedback.perfectClear || feedback.difficult || feedback.lines === 4;
+      prevClearFeedbackId = feedback.id;
+      clearToastUntilMs = now + TOAST_DURATION_MS;
+      clearToast.classList.toggle('is-major', strongClear);
+      setText(clearToast, clearLabelFor(feedback));
+      triggerBoardPulse(strongClear);
+    }
 
     if (snapshot.combo > prevCombo && snapshot.combo > 0) {
       comboToastValue = snapshot.combo;
@@ -258,11 +329,14 @@ export const createRenderer = (): GameRenderer => {
       b2bToastValue = snapshot.b2bChain;
       b2bToastUntilMs = now + TOAST_DURATION_MS;
       setText(b2bToast, `B2B x${b2bToastValue}`);
+      triggerBoardShake();
     }
 
+    clearToast.hidden = now >= clearToastUntilMs;
     comboToast.hidden = now >= comboToastUntilMs;
     b2bToast.hidden = now >= b2bToastUntilMs;
 
+    prevScore = snapshot.score;
     prevCombo = snapshot.combo;
     prevB2b = snapshot.b2bChain;
   };

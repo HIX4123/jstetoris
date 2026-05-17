@@ -96,6 +96,7 @@ export interface ClearFeedback {
   lines: 1 | 2 | 3 | 4;
   tspin: TSpinType;
   perfectClear: boolean;
+  attack: number;
   combo: number;
   b2bChain: number;
   difficult: boolean;

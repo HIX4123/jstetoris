@@ -654,6 +654,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
         lines: linesCleared as ClearFeedback['lines'],
         tspin,
         perfectClear,
+        attack: attackBreakdown.total,
         combo: state.combo,
         b2bChain: state.b2bChain,
         difficult: attackBreakdown.difficult,

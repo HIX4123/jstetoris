@@ -74,14 +74,15 @@ body {
 
 .tetris-board.is-clear-pulsing::before,
 .tetris-board.is-clear-pulsing-strong::before {
+  --clear-pulse-line: var(--effect-clear-ring);
+
   animation: clear-board-pulse 260ms ease-out;
-  background: var(--clear-pulse-bg, oklch(82% 0.12 195deg / 16%));
-  border-color: var(--clear-pulse-line, oklch(70% 0.16 195deg / 72%));
+  background: var(--clear-pulse-bg, var(--effect-clear-overlay));
+  border-color: var(--clear-pulse-line);
 }
 
 .tetris-board.is-clear-pulsing-strong::before {
-  --clear-pulse-bg: oklch(88% 0.18 95deg / 22%);
-  --clear-pulse-line: oklch(76% 0.18 95deg / 86%);
+  --clear-pulse-line: var(--effect-major-ring);
 }
 
 .tetris-board.is-paused::after {
@@ -133,7 +134,7 @@ body {
 
   28% {
     opacity: 1;
-    box-shadow: inset 0 0 0 0.16rem var(--clear-pulse-line, oklch(70% 0.16 195deg / 72%));
+    box-shadow: inset 0 0 0 0.16rem var(--clear-pulse-line);
   }
 
   100% {
@@ -345,12 +346,38 @@ button {
 }
 
 .clear-toast-item {
-  border-color: oklch(60% 0.14 195deg);
+  border-color: var(--effect-clear-border);
 }
 
 .clear-toast-item.is-major {
-  border-color: oklch(66% 0.16 95deg);
-  background: oklch(97% 0.05 95deg);
+  border-color: var(--effect-major-border);
+  background: var(--effect-major-bg);
+}
+
+.perfect-clear-toast {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  width: max-content;
+  max-width: calc(100% - 0.5rem);
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: none;
+  color: var(--effect-perfect-fill);
+  font-size: clamp(1.8rem, 12vw, 3.25rem);
+  font-weight: 900;
+  line-height: 0.86;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: pre-line;
+  text-shadow: none;
+  -webkit-text-stroke: 0.028em var(--effect-perfect-stroke);
+  text-stroke: 0.028em var(--effect-perfect-stroke);
+}
+
+.perfect-clear-toast.is-showing {
+  animation: perfect-clear-shout 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .leaderboard-prompt {
@@ -494,6 +521,28 @@ button {
   font-size: 0.72rem;
 }
 
+@keyframes perfect-clear-shout {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+
+  62% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}
+
 .preview-grid {
   width: 7rem;
   aspect-ratio: 1 / 1;
@@ -614,6 +663,7 @@ button {
   .tetris-board.is-b2b-shaking,
   .tetris-board.is-clear-pulsing::before,
   .tetris-board.is-clear-pulsing-strong::before,
+  .perfect-clear-toast.is-showing,
   #score-value.is-score-popping {
     animation: none;
     will-change: auto;

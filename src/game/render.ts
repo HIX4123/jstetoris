@@ -66,7 +66,9 @@ const PREVIEW_CELLS: Record<PieceType, Point[]> = {
 
 const toneClass = (pieceType: PieceType): string => `tone-${pieceType.toLowerCase()}`;
 const TOAST_DURATION_MS = 1200;
+const MAX_DAMAGE_PULSE_ATTACK = 10;
 const LEADERBOARD_LIMIT = 20;
+const PERFECT_CLEAR_LABEL = 'ALL\nCLEAR';
 const LINE_CLEAR_LABELS: Record<ClearFeedback['lines'], string> = {
   1: 'SINGLE',
   2: 'DOUBLE',
@@ -97,6 +99,17 @@ const setText = (node: HTMLElement, value: string): void => {
   }
 };
 
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
+const damagePulseBackground = (attack: number): string => {
+  const intensity = clamp(attack / MAX_DAMAGE_PULSE_ATTACK, 0, 1);
+  const lightness = 82 - 22 * intensity;
+  const chroma = 0.12 + 0.08 * intensity;
+  const hue = 205 - 175 * intensity;
+  const alpha = 16 + 16 * intensity;
+
+  return `oklch(${lightness.toFixed(2)}% ${chroma.toFixed(3)} ${hue.toFixed(1)}deg / ${alpha.toFixed(2)}%)`;
+};
 
 const clearLabelFor = (feedback: ClearFeedback): string => {
   if (feedback.perfectClear) {
@@ -127,6 +140,7 @@ export const createRenderer = (): GameRenderer => {
   const clearToast = document.querySelector<HTMLElement>('#clear-toast');
   const comboToast = document.querySelector<HTMLElement>('#combo-toast');
   const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
+  const perfectClearToast = document.querySelector<HTMLElement>('#perfect-clear-toast');
   const leaderboardList = document.querySelector<HTMLOListElement>('#leaderboard-list');
   const leaderboardPrompt = document.querySelector<HTMLElement>('#leaderboard-prompt');
   const leaderboardPromptScore = document.querySelector<HTMLElement>('#leaderboard-prompt-score');
@@ -153,6 +167,7 @@ export const createRenderer = (): GameRenderer => {
     !clearToast ||
     !comboToast ||
     !b2bToast ||
+    !perfectClearToast ||
     !leaderboardList ||
     !leaderboardPrompt ||
     !leaderboardPromptScore ||
@@ -258,6 +273,7 @@ export const createRenderer = (): GameRenderer => {
   let clearToastUntilMs = 0;
   let comboToastUntilMs = 0;
   let b2bToastUntilMs = 0;
+  let perfectClearToastUntilMs = 0;
   let comboToastValue = 0;
   let b2bToastValue = 0;
 
@@ -267,10 +283,16 @@ export const createRenderer = (): GameRenderer => {
     element.classList.add(className);
   };
 
-  const triggerBoardPulse = (strong: boolean): void => {
+  const triggerBoardPulse = (feedback: ClearFeedback): void => {
+    if (feedback.attack <= 0) {
+      return;
+    }
+
+    const strongClear = feedback.perfectClear || feedback.difficult;
     boardGrid.classList.remove('is-clear-pulsing', 'is-clear-pulsing-strong');
+    boardGrid.style.setProperty('--clear-pulse-bg', damagePulseBackground(feedback.attack));
     boardGrid.getBoundingClientRect();
-    boardGrid.classList.add(strong ? 'is-clear-pulsing-strong' : 'is-clear-pulsing');
+    boardGrid.classList.add(strongClear ? 'is-clear-pulsing-strong' : 'is-clear-pulsing');
   };
 
   const triggerBoardShake = (): void => {
@@ -393,10 +415,19 @@ export const createRenderer = (): GameRenderer => {
       const strongClear = feedback.perfectClear || feedback.difficult || feedback.lines === 4;
       prevClearFeedbackId = feedback.id;
 
-      clearToastUntilMs = now + TOAST_DURATION_MS;
-      clearToast.classList.toggle('is-major', strongClear);
-      setText(clearToast, clearLabelFor(feedback));
-      triggerBoardPulse(strongClear);
+      if (feedback.perfectClear) {
+        clearToastUntilMs = 0;
+        perfectClearToastUntilMs = now + TOAST_DURATION_MS;
+        setText(perfectClearToast, PERFECT_CLEAR_LABEL);
+        perfectClearToast.hidden = false;
+        restartAnimation(perfectClearToast, 'is-showing');
+      } else {
+        clearToastUntilMs = now + TOAST_DURATION_MS;
+        clearToast.classList.toggle('is-major', strongClear);
+        setText(clearToast, clearLabelFor(feedback));
+      }
+
+      triggerBoardPulse(feedback);
     }
 
     if (snapshot.combo > prevCombo && snapshot.combo > 0) {
@@ -415,6 +446,12 @@ export const createRenderer = (): GameRenderer => {
     clearToast.hidden = now >= clearToastUntilMs;
     comboToast.hidden = now >= comboToastUntilMs;
     b2bToast.hidden = now >= b2bToastUntilMs;
+    perfectClearToast.hidden = now >= perfectClearToastUntilMs;
+
+    if (perfectClearToast.hidden) {
+      perfectClearToast.classList.remove('is-showing');
+    }
+
     prevScore = snapshot.score;
     prevCombo = snapshot.combo;
     prevB2b = snapshot.b2bChain;

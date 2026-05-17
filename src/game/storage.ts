@@ -12,7 +12,7 @@ const ARR_RANGE = { min: 0, max: 100 };
 const SDF_RANGE = { min: 1, max: 40 };
 
 export const DEFAULT_HANDLING: HandlingConfig = {
-  dasMs: 100,
+  dasMs: 165,
   arrMs: 0,
   sdfG: 20,
 };

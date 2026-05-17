@@ -44,6 +44,18 @@ const createAlmostQuadBoard = (): (PieceType | null)[][] => {
   return board;
 };
 
+const createBlitzLevelMultiplierBoard = (): (PieceType | null)[][] => {
+  const board = createAlmostQuadBoard();
+
+  for (let y = BOARD_HEIGHT - 6; y < BOARD_HEIGHT - 4; y += 1) {
+    for (let x = 0; x < BOARD_WIDTH; x += 1) {
+      board[y][x] = x === 4 || x === 5 ? null : 'O';
+    }
+  }
+
+  return board;
+};
+
 const createAlmostSingleBoardForO = (): (PieceType | null)[][] => {
   const board = Array.from({ length: BOARD_HEIGHT }, () =>
     Array.from({ length: BOARD_WIDTH }, () => null as PieceType | null),
@@ -154,6 +166,33 @@ describe('engine helpers', () => {
       combo: 0,
       b2bChain: 2,
       difficult: true,
+    });
+  });
+
+  it('uses the BLITZ level multiplier from lines cleared before the current clear', () => {
+    const engine = createGameEngine({
+      initialBoard: createBlitzLevelMultiplierBoard(),
+      random: () => 0.999,
+    });
+
+    expect(engine.dispatch({ type: 'start' })).toBe(true);
+    expectActiveType(engine, 'I');
+    expect(engine.dispatch({ type: 'rotateCW' })).toBe(true);
+    expect(engine.dispatch({ type: 'hardDrop' })).toBe(true);
+    expectActiveType(engine, 'O');
+
+    expect(engine.dispatch({ type: 'hardDrop' })).toBe(true);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.lines).toBe(6);
+    expect(snapshot.score).toBe(8576);
+    expect(snapshot.lastClearFeedback).toMatchObject({
+      id: 2,
+      lines: 2,
+      tspin: 'none',
+      perfectClear: true,
+      combo: 1,
+      b2bChain: 3,
     });
   });
 

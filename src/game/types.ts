@@ -69,6 +69,7 @@ export interface AttackBreakdown {
 }
 
 export interface ScoringEvent {
+  level: number;
   lines: number;
   tspin: TSpinType;
   b2bActive: boolean;

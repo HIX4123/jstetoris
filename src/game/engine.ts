@@ -1,5 +1,5 @@
 import { attemptSrsPlusRotation } from './rotation/srsPlus';
-import { calculateAttack, calculateScore, keepsBackToBack } from './scoring';
+import { blitzLevelForLines, calculateAttack, calculateScore, keepsBackToBack } from './scoring';
 import { DEFAULT_HANDLING, normalizeHandling } from './storage';
 
 import type {
@@ -588,6 +588,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       surgeAttack: b2bBreaks ? state.surgeCharge : 0,
     });
     const scoreBreakdown = calculateScore({
+      level: blitzLevelForLines(state.lines),
       lines: linesCleared,
       tspin,
       b2bActive: state.b2bChain > 0,

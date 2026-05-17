@@ -13,15 +13,12 @@ const TSPIN_SCORE: Record<number, number> = {
   1: 800,
   2: 1200,
   3: 1600,
-  4: 2600,
 };
 
 const TSPIN_MINI_SCORE: Record<number, number> = {
   0: 100,
   1: 200,
   2: 400,
-  3: 800,
-  4: 1600,
 };
 
 const LINE_CLEAR_ATTACK: Record<number, number> = {
@@ -47,6 +44,24 @@ const TSPIN_MINI_ATTACK: Record<number, number> = {
 
 const ALL_CLEAR_SCORE = 3500;
 const ALL_CLEAR_ATTACK = 0;
+
+export const blitzLinesRequiredForLevel = (level: number): number => {
+  const normalizedLevel = Math.max(1, Math.floor(level));
+
+  return normalizedLevel <= 10 ? normalizedLevel * 2 + 1 : normalizedLevel * 2 + 2;
+};
+
+export const blitzLevelForLines = (lines: number): number => {
+  let level = 1;
+  let remainingLines = Math.max(0, Math.floor(lines));
+
+  while (remainingLines >= blitzLinesRequiredForLevel(level)) {
+    remainingLines -= blitzLinesRequiredForLevel(level);
+    level += 1;
+  }
+
+  return level;
+};
 
 const getBaseScore = (lines: number, tspin: TSpinType): number => {
   if (tspin === 'full') {
@@ -109,12 +124,13 @@ export const keepsBackToBack = (lines: number, tspin: TSpinType, perfectClear = 
 };
 
 export const calculateScore = (event: ScoringEvent): ScoreBreakdown => {
-  const base = getBaseScore(event.lines, event.tspin);
+  const level = Math.max(1, Math.floor(event.level));
+  const base = getBaseScore(event.lines, event.tspin) * level;
   const difficult = isDifficultClear(event.lines, event.tspin);
   const keepsB2B = keepsBackToBack(event.lines, event.tspin, event.perfectClear);
   const b2bBonus = difficult && event.b2bActive ? Math.floor(base * 0.5) : 0;
-  const comboBonus = event.lines > 0 && event.combo > 0 ? event.combo * 50 : 0;
-  const allClearBonus = event.perfectClear && event.lines > 0 ? ALL_CLEAR_SCORE : 0;
+  const comboBonus = event.lines > 0 && event.combo > 0 ? event.combo * 50 * level : 0;
+  const allClearBonus = event.perfectClear && event.lines > 0 ? ALL_CLEAR_SCORE * level : 0;
   const dropBonus = event.softDropCells + event.hardDropCells * 2;
   const total = base + b2bBonus + comboBonus + allClearBonus + dropBonus;
 

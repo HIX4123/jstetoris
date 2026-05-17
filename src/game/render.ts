@@ -1,19 +1,22 @@
 import { NEXT_PREVIEW_COUNT } from './engine';
 import { handlingRanges } from './storage';
 
-import type { ClearFeedback, GameSnapshot, HandlingConfig, PieceType, Point } from './types';
+import type { ClearFeedback, GameSnapshot, HandlingConfig, LeaderboardEntry, PieceType, Point } from './types';
 
 interface RendererBindings {
   onStart: () => void;
   onPause: () => void;
   onRestart: () => void;
   onHandlingChange: (handling: HandlingConfig) => void;
+  onLeaderboardSubmit: (name: string) => void;
 }
 
 export interface GameRenderer {
   render: (snapshot: GameSnapshot, highScore: number) => void;
   bindControls: (bindings: RendererBindings) => void;
   setHandlingInputs: (handling: HandlingConfig) => void;
+  renderLeaderboard: (entries: LeaderboardEntry[]) => void;
+  showLeaderboardPrompt: (score: number) => void;
 }
 
 const PREVIEW_CELLS: Record<PieceType, Point[]> = {
@@ -63,6 +66,7 @@ const PREVIEW_CELLS: Record<PieceType, Point[]> = {
 
 const toneClass = (pieceType: PieceType): string => `tone-${pieceType.toLowerCase()}`;
 const TOAST_DURATION_MS = 1200;
+const LEADERBOARD_LIMIT = 20;
 const LINE_CLEAR_LABELS: Record<ClearFeedback['lines'], string> = {
   1: 'SINGLE',
   2: 'DOUBLE',
@@ -93,6 +97,7 @@ const setText = (node: HTMLElement, value: string): void => {
   }
 };
 
+
 const clearLabelFor = (feedback: ClearFeedback): string => {
   if (feedback.perfectClear) {
     return 'PERFECT CLEAR';
@@ -122,6 +127,11 @@ export const createRenderer = (): GameRenderer => {
   const clearToast = document.querySelector<HTMLElement>('#clear-toast');
   const comboToast = document.querySelector<HTMLElement>('#combo-toast');
   const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
+  const leaderboardList = document.querySelector<HTMLOListElement>('#leaderboard-list');
+  const leaderboardPrompt = document.querySelector<HTMLElement>('#leaderboard-prompt');
+  const leaderboardPromptScore = document.querySelector<HTMLElement>('#leaderboard-prompt-score');
+  const leaderboardForm = document.querySelector<HTMLFormElement>('#leaderboard-form');
+  const leaderboardNameInput = document.querySelector<HTMLInputElement>('#leaderboard-name-input');
 
   const startButton = document.querySelector<HTMLButtonElement>('#start-btn');
   const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn');
@@ -143,6 +153,11 @@ export const createRenderer = (): GameRenderer => {
     !clearToast ||
     !comboToast ||
     !b2bToast ||
+    !leaderboardList ||
+    !leaderboardPrompt ||
+    !leaderboardPromptScore ||
+    !leaderboardForm ||
+    !leaderboardNameInput ||
     !startButton ||
     !pauseButton ||
     !restartButton ||
@@ -188,6 +203,52 @@ export const createRenderer = (): GameRenderer => {
     dasInput.value = `${handling.dasMs}`;
     arrInput.value = `${handling.arrMs}`;
     sdfInput.value = `${handling.sdfG}`;
+  };
+
+  const hideLeaderboardPrompt = (): void => {
+    leaderboardPrompt.hidden = true;
+    leaderboardNameInput.value = '';
+  };
+
+  const showLeaderboardPrompt = (score: number): void => {
+    setText(leaderboardPromptScore, `${score}`);
+    leaderboardNameInput.value = '';
+    leaderboardPrompt.hidden = false;
+    window.requestAnimationFrame(() => {
+      leaderboardNameInput.focus();
+      leaderboardNameInput.select();
+    });
+  };
+
+  const renderLeaderboard = (entries: LeaderboardEntry[]): void => {
+    const fragment = document.createDocumentFragment();
+
+    for (let index = 0; index < LEADERBOARD_LIMIT; index += 1) {
+      const entry = entries[index];
+      const item = document.createElement('li');
+      item.className = entry ? 'leaderboard-item' : 'leaderboard-item is-empty';
+
+      const rank = document.createElement('span');
+      rank.className = 'leaderboard-rank';
+      rank.textContent = `${index + 1}`;
+
+      const name = document.createElement('span');
+      name.className = 'leaderboard-name';
+      name.textContent = entry?.name ?? '-';
+
+      const score = document.createElement('span');
+      score.className = 'leaderboard-score';
+      score.textContent = entry ? `${entry.score}` : '-';
+
+      const detail = document.createElement('span');
+      detail.className = 'leaderboard-detail';
+      detail.textContent = entry ? `Lv ${entry.level} / ${entry.lines}L` : '';
+
+      item.append(rank, name, score, detail);
+      fragment.append(item);
+    }
+
+    leaderboardList.replaceChildren(fragment);
   };
 
   let prevCombo = -1;
@@ -244,6 +305,20 @@ export const createRenderer = (): GameRenderer => {
     dasInput.addEventListener('change', onHandlingInput);
     arrInput.addEventListener('change', onHandlingInput);
     sdfInput.addEventListener('change', onHandlingInput);
+
+    leaderboardForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      bindings.onLeaderboardSubmit(leaderboardNameInput.value);
+      hideLeaderboardPrompt();
+    });
+
+    leaderboardNameInput.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+    });
+
+    leaderboardNameInput.addEventListener('keyup', (event) => {
+      event.stopPropagation();
+    });
   };
 
   const render = (snapshot: GameSnapshot, highScore: number): void => {
@@ -307,12 +382,17 @@ export const createRenderer = (): GameRenderer => {
     setText(goalValue, `${snapshot.goal}`);
     boardGrid.classList.toggle('is-paused', snapshot.status === 'paused');
 
+    if (snapshot.status !== 'gameover' && !leaderboardPrompt.hidden) {
+      hideLeaderboardPrompt();
+    }
+
     if (!snapshot.lastClearFeedback) {
       prevClearFeedbackId = 0;
     } else if (snapshot.lastClearFeedback.id !== prevClearFeedbackId) {
       const feedback = snapshot.lastClearFeedback;
       const strongClear = feedback.perfectClear || feedback.difficult || feedback.lines === 4;
       prevClearFeedbackId = feedback.id;
+
       clearToastUntilMs = now + TOAST_DURATION_MS;
       clearToast.classList.toggle('is-major', strongClear);
       setText(clearToast, clearLabelFor(feedback));
@@ -335,7 +415,6 @@ export const createRenderer = (): GameRenderer => {
     clearToast.hidden = now >= clearToastUntilMs;
     comboToast.hidden = now >= comboToastUntilMs;
     b2bToast.hidden = now >= b2bToastUntilMs;
-
     prevScore = snapshot.score;
     prevCombo = snapshot.combo;
     prevB2b = snapshot.b2bChain;
@@ -345,5 +424,7 @@ export const createRenderer = (): GameRenderer => {
     render,
     bindControls,
     setHandlingInputs,
+    renderLeaderboard,
+    showLeaderboardPrompt,
   };
 };

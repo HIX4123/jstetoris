@@ -1,7 +1,11 @@
-import type { HandlingConfig } from './types';
+import type { HandlingConfig, LeaderboardEntry } from './types';
 
 const STORAGE_KEY = 'tetris_handling_v1';
 const HIGH_SCORE_KEY = 'tetris_high_score_v1';
+const LEADERBOARD_KEY = 'tetris_leaderboard_v1';
+const LEADERBOARD_LIMIT = 20;
+const LEADERBOARD_NAME_MAX_LENGTH = 12;
+const DEFAULT_LEADERBOARD_NAME = 'PLAYER';
 
 const DAS_RANGE = { min: 0, max: 300 };
 const ARR_RANGE = { min: 0, max: 100 };
@@ -14,6 +18,64 @@ export const DEFAULT_HANDLING: HandlingConfig = {
 };
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const normalizeInteger = (value: unknown, min: number): number | null => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(min, Math.floor(parsed));
+};
+
+const normalizeLeaderboardName = (name: unknown): string => {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  return (trimmed || DEFAULT_LEADERBOARD_NAME).slice(0, LEADERBOARD_NAME_MAX_LENGTH);
+};
+
+const compareLeaderboardEntries = (a: LeaderboardEntry, b: LeaderboardEntry): number =>
+  b.score - a.score || a.createdAt - b.createdAt;
+
+const normalizeLeaderboardEntry = (value: unknown): LeaderboardEntry | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' ? value.id.trim() : '';
+  const score = normalizeInteger(value.score, 0);
+  const level = normalizeInteger(value.level, 1);
+  const lines = normalizeInteger(value.lines, 0);
+  const createdAt = normalizeInteger(value.createdAt, 0);
+
+  if (!id || score === null || level === null || lines === null || createdAt === null) {
+    return null;
+  }
+
+  return {
+    id,
+    name: normalizeLeaderboardName(value.name),
+    score,
+    level,
+    lines,
+    createdAt,
+  };
+};
+
+const normalizeLeaderboardEntries = (entries: unknown): LeaderboardEntry[] => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map(normalizeLeaderboardEntry)
+    .filter((entry): entry is LeaderboardEntry => entry !== null)
+    .sort(compareLeaderboardEntries)
+    .slice(0, LEADERBOARD_LIMIT);
+};
 
 export const normalizeHandling = (partial: Partial<HandlingConfig>): HandlingConfig => ({
   dasMs: clamp(
@@ -80,6 +142,44 @@ export const saveHighScore = (score: number): void => {
     // Storage failure should not break gameplay.
   }
 };
+
+export const loadLeaderboard = (): LeaderboardEntry[] => {
+  try {
+    const raw = globalThis.localStorage?.getItem(LEADERBOARD_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    return normalizeLeaderboardEntries(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+};
+
+export const saveLeaderboard = (entries: LeaderboardEntry[]): void => {
+  try {
+    globalThis.localStorage?.setItem(LEADERBOARD_KEY, JSON.stringify(normalizeLeaderboardEntries(entries)));
+  } catch {
+    // Storage failure should not break gameplay.
+  }
+};
+
+export const qualifiesForLeaderboard = (entries: LeaderboardEntry[], score: number): boolean => {
+  const normalizedScore = normalizeInteger(score, 0);
+
+  if (normalizedScore === null) {
+    return false;
+  }
+
+  const normalizedEntries = normalizeLeaderboardEntries(entries);
+  return normalizedEntries.length < LEADERBOARD_LIMIT || normalizedScore > normalizedEntries[LEADERBOARD_LIMIT - 1].score;
+};
+
+export const insertLeaderboardEntry = (
+  entries: LeaderboardEntry[],
+  entry: LeaderboardEntry,
+): LeaderboardEntry[] => normalizeLeaderboardEntries([...entries, entry]);
 
 export const handlingRanges = {
   dasMs: DAS_RANGE,

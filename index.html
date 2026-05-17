@@ -41,6 +41,25 @@
             <p id="combo-toast" class="event-toast-item" hidden></p>
             <p id="b2b-toast" class="event-toast-item" hidden></p>
           </div>
+          <section id="leaderboard-prompt" class="leaderboard-prompt" aria-label="리더보드 이름 입력" hidden>
+            <form id="leaderboard-form" class="leaderboard-form">
+              <p class="leaderboard-prompt-kicker">Top 20</p>
+              <h2>New Record</h2>
+              <p class="leaderboard-prompt-score">Score <span id="leaderboard-prompt-score">0</span></p>
+              <label for="leaderboard-name-input">Name</label>
+              <div class="leaderboard-submit-row">
+                <input
+                  id="leaderboard-name-input"
+                  type="text"
+                  maxlength="12"
+                  autocomplete="off"
+                  inputmode="text"
+                  placeholder="PLAYER"
+                />
+                <button type="submit">Save</button>
+              </div>
+            </form>
+          </section>
         </div>
         <div class="button-row">
           <button id="start-btn" type="button">Start</button>
@@ -66,6 +85,16 @@
           </section>
         </aside>
       </main>
+
+      <aside class="leaderboard-dock" aria-label="리더보드">
+        <section class="leaderboard-panel">
+          <header class="leaderboard-header">
+            <h2>Leaderboard</h2>
+            <p>Top 20</p>
+          </header>
+          <ol id="leaderboard-list" class="leaderboard-list"></ol>
+        </section>
+      </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

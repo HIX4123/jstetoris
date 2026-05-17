@@ -30,6 +30,15 @@ export interface HandlingConfig {
   sdfG: number;
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  name: string;
+  score: number;
+  level: number;
+  lines: number;
+  createdAt: number;
+}
+
 export interface GameConfig {
   handling: HandlingConfig;
 }

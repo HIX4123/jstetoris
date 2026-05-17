@@ -73,10 +73,13 @@ describe('engine helpers', () => {
     expect(new Set(bag).size).toBe(7);
   });
 
-  it('uses TETRA LEAGUE elapsed-time gravity', () => {
+  it('uses marathon-scaled TETRA LEAGUE elapsed-time gravity', () => {
     expect(gravityForElapsedMs(0)).toBe(0.02);
     expect(gravityForElapsedMs(TETRA_LEAGUE_GRAVITY_MARGIN_MS - 1)).toBe(0.02);
-    expect(gravityForElapsedMs(TETRA_LEAGUE_GRAVITY_MARGIN_MS + 1000)).toBeCloseTo(0.0235);
+    expect(gravityForElapsedMs(TETRA_LEAGUE_GRAVITY_MARGIN_MS + 1000)).toBeCloseTo(0.02035);
+    expect(gravityForElapsedMs(777_143)).toBeCloseTo(0.25);
+    expect(gravityForElapsedMs(2_920_000)).toBeCloseTo(1);
+    expect(gravityForElapsedMs(7_205_714)).toBeCloseTo(2.5);
     expect(gravityForElapsedMs(Number.MAX_SAFE_INTEGER)).toBe(TETRA_LEAGUE_MAX_GRAVITY_G);
   });
 

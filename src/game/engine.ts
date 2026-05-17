@@ -33,6 +33,7 @@ export const TETRA_LEAGUE_GRAVITY_MARGIN_FRAMES = 7200;
 export const TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND = 0.0035;
 export const TETRA_LEAGUE_MAX_GRAVITY_G = 20;
 export const TETRA_LEAGUE_GRAVITY_MARGIN_MS = TETRA_LEAGUE_GRAVITY_MARGIN_FRAMES * FRAME_MS;
+export const MARATHON_GRAVITY_INCREASE_SCALE = 10;
 
 const PIECE_ORDER: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
 
@@ -283,7 +284,7 @@ export const gravityForElapsedMs = (elapsedMs: number): number => {
   const marginElapsedSeconds = Math.max(0, elapsedMs - TETRA_LEAGUE_GRAVITY_MARGIN_MS) / 1000;
   const gravity =
     TETRA_LEAGUE_BASE_GRAVITY_G +
-    marginElapsedSeconds * TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND;
+    (marginElapsedSeconds * TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND) / MARATHON_GRAVITY_INCREASE_SCALE;
 
   return Math.min(gravity, TETRA_LEAGUE_MAX_GRAVITY_G);
 };

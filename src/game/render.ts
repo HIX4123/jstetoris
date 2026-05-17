@@ -127,6 +127,21 @@ const clearLabelFor = (feedback: ClearFeedback): string => {
   return LINE_CLEAR_LABELS[feedback.lines];
 };
 
+const formatTimer = (ms: number, rounding: 'ceil' | 'floor'): string => {
+  const normalizedMs = Math.max(0, ms);
+  const totalSeconds = rounding === 'ceil' ? Math.ceil(normalizedMs / 1000) : Math.floor(normalizedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const formatGravity = (gravityG: number): string =>
+  `${gravityG < 1 ? gravityG.toFixed(3) : gravityG.toFixed(2)}G`;
+
+const formatMargin = (remainingMs: number, elapsedMs: number): string =>
+  remainingMs > 0 ? formatTimer(remainingMs, 'ceil') : `+${formatTimer(elapsedMs, 'floor')}`;
+
 export const createRenderer = (): GameRenderer => {
   const boardGrid = document.querySelector<HTMLDivElement>('#board-grid');
   const nextGrids = [...document.querySelectorAll<HTMLDivElement>('.next-grid')];
@@ -134,9 +149,9 @@ export const createRenderer = (): GameRenderer => {
 
   const scoreValue = document.querySelector<HTMLElement>('#score-value');
   const highScoreValue = document.querySelector<HTMLElement>('#high-score-value');
-  const levelValue = document.querySelector<HTMLElement>('#level-value');
+  const gravityValue = document.querySelector<HTMLElement>('#gravity-value');
   const linesValue = document.querySelector<HTMLElement>('#lines-value');
-  const goalValue = document.querySelector<HTMLElement>('#goal-value');
+  const marginValue = document.querySelector<HTMLElement>('#margin-value');
   const clearToast = document.querySelector<HTMLElement>('#clear-toast');
   const comboToast = document.querySelector<HTMLElement>('#combo-toast');
   const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
@@ -161,9 +176,9 @@ export const createRenderer = (): GameRenderer => {
     !holdGrid ||
     !scoreValue ||
     !highScoreValue ||
-    !levelValue ||
+    !gravityValue ||
     !linesValue ||
-    !goalValue ||
+    !marginValue ||
     !clearToast ||
     !comboToast ||
     !b2bToast ||
@@ -257,7 +272,7 @@ export const createRenderer = (): GameRenderer => {
 
       const detail = document.createElement('span');
       detail.className = 'leaderboard-detail';
-      detail.textContent = entry ? `Lv ${entry.level} / ${entry.lines}L` : '';
+      detail.textContent = entry ? `${entry.lines}L` : '';
 
       item.append(rank, name, score, detail);
       fragment.append(item);
@@ -399,9 +414,9 @@ export const createRenderer = (): GameRenderer => {
 
     setText(scoreValue, `${snapshot.score}`);
     setText(highScoreValue, `${highScore}`);
-    setText(levelValue, `${snapshot.level}`);
+    setText(gravityValue, formatGravity(snapshot.gravityG));
     setText(linesValue, `${snapshot.lines}`);
-    setText(goalValue, `${snapshot.goal}`);
+    setText(marginValue, formatMargin(snapshot.marginMsRemaining, snapshot.marginElapsedMs));
     boardGrid.classList.toggle('is-paused', snapshot.status === 'paused');
 
     if (snapshot.status !== 'gameover' && !leaderboardPrompt.hidden) {

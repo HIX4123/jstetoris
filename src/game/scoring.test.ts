@@ -5,7 +5,6 @@ import { calculateAttack, calculateScore, isDifficultClear, keepsBackToBack } fr
 import type { ScoringEvent } from './types';
 
 const createScoreEvent = (overrides: Partial<ScoringEvent>): ScoringEvent => ({
-  level: 1,
   lines: 0,
   tspin: 'none',
   b2bActive: false,
@@ -22,18 +21,17 @@ describe('calculateScore', () => {
     expect(calculateScore(createScoreEvent({ lines: 4 })).total).toBe(800);
   });
 
-  it('applies level multiplier and B2B bonus to difficult clears', () => {
+  it('applies B2B bonus to difficult clears', () => {
     const score = calculateScore(
       createScoreEvent({
-        level: 2,
         lines: 4,
         b2bActive: true,
       }),
     );
 
-    expect(score.base).toBe(1600);
-    expect(score.b2bBonus).toBe(800);
-    expect(score.total).toBe(2400);
+    expect(score.base).toBe(800);
+    expect(score.b2bBonus).toBe(400);
+    expect(score.total).toBe(1200);
   });
 
   it('scores T-Spin doubles using the solo table', () => {
@@ -51,7 +49,6 @@ describe('calculateScore', () => {
   it('includes combo and drop points', () => {
     const score = calculateScore(
       createScoreEvent({
-        level: 3,
         lines: 1,
         combo: 2,
         softDropCells: 4,
@@ -59,24 +56,23 @@ describe('calculateScore', () => {
       }),
     );
 
-    expect(score.base).toBe(300);
-    expect(score.comboBonus).toBe(300);
+    expect(score.base).toBe(100);
+    expect(score.comboBonus).toBe(100);
     expect(score.dropBonus).toBe(14);
-    expect(score.total).toBe(614);
+    expect(score.total).toBe(214);
   });
 
   it('adds TETR.IO all clear score regardless of cleared line count', () => {
     const score = calculateScore(
       createScoreEvent({
-        level: 2,
         lines: 2,
         perfectClear: true,
       }),
     );
 
-    expect(score.base).toBe(600);
-    expect(score.allClearBonus).toBe(7000);
-    expect(score.total).toBe(7600);
+    expect(score.base).toBe(300);
+    expect(score.allClearBonus).toBe(3500);
+    expect(score.total).toBe(3800);
   });
 });
 

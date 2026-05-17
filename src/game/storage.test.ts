@@ -99,9 +99,9 @@ describe('storage helpers', () => {
 
   it('sorts and roundtrips leaderboard entries by score then age', () => {
     const entries: LeaderboardEntry[] = [
-      { id: 'middle', name: 'MID', score: 200, level: 2, lines: 8, createdAt: 2 },
-      { id: 'newer-tie', name: 'NEW', score: 300, level: 3, lines: 12, createdAt: 3 },
-      { id: 'older-tie', name: 'OLD', score: 300, level: 3, lines: 12, createdAt: 1 },
+      { id: 'middle', name: 'MID', score: 200, lines: 8, createdAt: 2 },
+      { id: 'newer-tie', name: 'NEW', score: 300, lines: 12, createdAt: 3 },
+      { id: 'older-tie', name: 'OLD', score: 300, lines: 12, createdAt: 1 },
     ];
 
     saveLeaderboard(entries);
@@ -114,7 +114,6 @@ describe('storage helpers', () => {
       id: `score-${index}`,
       name: 'PLAYER',
       score: index,
-      level: 1,
       lines: 0,
       createdAt: index,
     }));
@@ -123,7 +122,6 @@ describe('storage helpers', () => {
       id: 'bonus',
       name: 'ACE',
       score: 100,
-      level: 4,
       lines: 20,
       createdAt: 100,
     });
@@ -137,15 +135,15 @@ describe('storage helpers', () => {
     globalThis.localStorage.setItem(
       'tetris_leaderboard_v1',
       JSON.stringify([
-        { id: 'bad-score', name: 'BAD', score: 'NaN', level: 1, lines: 0, createdAt: 1 },
-        { id: 'negative', name: '   ', score: -10, level: 0, lines: -5, createdAt: -1 },
-        { id: 'long-name', name: '  LONGPLAYERNAME  ', score: 10, level: 2, lines: 3, createdAt: 2 },
+        { id: 'bad-score', name: 'BAD', score: 'NaN', lines: 0, createdAt: 1 },
+        { id: 'negative', name: '   ', score: -10, lines: -5, createdAt: -1 },
+        { id: 'long-name', name: '  LONGPLAYERNAME  ', score: 10, lines: 3, createdAt: 2 },
       ]),
     );
 
     expect(loadLeaderboard()).toEqual([
-      { id: 'long-name', name: 'LONGPLAYERNA', score: 10, level: 2, lines: 3, createdAt: 2 },
-      { id: 'negative', name: 'PLAYER', score: 0, level: 1, lines: 0, createdAt: 0 },
+      { id: 'long-name', name: 'LONGPLAYERNA', score: 10, lines: 3, createdAt: 2 },
+      { id: 'negative', name: 'PLAYER', score: 0, lines: 0, createdAt: 0 },
     ]);
   });
 
@@ -159,7 +157,6 @@ describe('storage helpers', () => {
       id: `entry-${index}`,
       name: 'PLAYER',
       score: 100 - index,
-      level: 1,
       lines: 0,
       createdAt: index,
     }));

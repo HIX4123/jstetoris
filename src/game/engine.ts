@@ -28,6 +28,11 @@ const LOCK_RESET_LIMIT = 15;
 const SURGE_START_B2B_CHAIN = 4;
 const SPAWN_X = 3;
 const SPAWN_Y = 18;
+export const TETRA_LEAGUE_BASE_GRAVITY_G = 0.02;
+export const TETRA_LEAGUE_GRAVITY_MARGIN_FRAMES = 7200;
+export const TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND = 0.0035;
+export const TETRA_LEAGUE_MAX_GRAVITY_G = 20;
+export const TETRA_LEAGUE_GRAVITY_MARGIN_MS = TETRA_LEAGUE_GRAVITY_MARGIN_FRAMES * FRAME_MS;
 
 const PIECE_ORDER: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
 
@@ -44,8 +49,7 @@ interface InternalState {
   score: number;
   attackSent: number;
   lines: number;
-  level: number;
-  goal: number;
+  elapsedMs: number;
   combo: number;
   b2bChain: number;
   surgeCharge: number;
@@ -275,52 +279,13 @@ const PIECE_CELLS: Record<PieceType, readonly (readonly Point[])[]> = {
   ],
 };
 
-export const gravityForLevel = (level: number): number => {
-  const base = [
-    0,
-    0.01667,
-    0.021017,
-    0.026977,
-    0.035256,
-    0.04693,
-    0.06361,
-    0.0879,
-    0.1236,
-    0.1775,
-    0.2598,
-    0.388,
-    0.59,
-    0.92,
-    1.46,
-    2.36,
-  ];
+export const gravityForElapsedMs = (elapsedMs: number): number => {
+  const marginElapsedSeconds = Math.max(0, elapsedMs - TETRA_LEAGUE_GRAVITY_MARGIN_MS) / 1000;
+  const gravity =
+    TETRA_LEAGUE_BASE_GRAVITY_G +
+    marginElapsedSeconds * TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND;
 
-  if (level <= 15) {
-    return base[Math.max(level, 1)];
-  }
-
-  let gravity = base[15];
-  for (let lv = 16; lv <= level; lv += 1) {
-    gravity *= 1.2;
-  }
-
-  return gravity;
-};
-
-export const linesToLevel = (lines: number): number => {
-  if (lines < 150) {
-    return Math.floor(lines / 10) + 1;
-  }
-
-  return 16 + Math.floor((lines - 150) / 10);
-};
-
-export const levelGoalLines = (level: number): number => {
-  if (level <= 15) {
-    return level * 10;
-  }
-
-  return 150 + (level - 15) * 10;
+  return Math.min(gravity, TETRA_LEAGUE_MAX_GRAVITY_G);
 };
 
 const pieceCellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => PIECE_CELLS[pieceType][rotation];
@@ -475,8 +440,7 @@ const createInitialState = (
   score: 0,
   attackSent: 0,
   lines: 0,
-  level: 1,
-  goal: 10,
+  elapsedMs: 0,
   combo: -1,
   b2bChain: 0,
   surgeCharge: 0,
@@ -623,7 +587,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       surgeAttack: b2bBreaks ? state.surgeCharge : 0,
     });
     const scoreBreakdown = calculateScore({
-      level: state.level,
       lines: linesCleared,
       tspin,
       b2bActive: state.b2bChain > 0,
@@ -662,8 +625,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     }
 
     state.lines += linesCleared;
-    state.level = linesToLevel(state.lines);
-    state.goal = levelGoalLines(state.level);
     state.canHold = true;
     state.gravityCarry = 0;
 
@@ -834,7 +795,9 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       return;
     }
 
-    const gravity = gravityForLevel(state.level);
+    state.elapsedMs += dtMs;
+
+    const gravity = gravityForElapsedMs(state.elapsedMs);
     const effectiveGravity = state.softDropActive ? Math.max(gravity, state.handling.sdfG) : gravity;
     state.gravityCarry += (effectiveGravity * dtMs) / FRAME_MS;
 
@@ -881,6 +844,9 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
           .filter((point): point is Point => point !== null)
       : [];
 
+    const marginElapsedMs = Math.max(0, state.elapsedMs - TETRA_LEAGUE_GRAVITY_MARGIN_MS);
+    const marginMsRemaining = Math.max(0, TETRA_LEAGUE_GRAVITY_MARGIN_MS - state.elapsedMs);
+
     return {
       status: state.status,
       boardVisible: visibleBoard,
@@ -890,9 +856,10 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       hold: state.hold,
       next: state.queue.slice(0, NEXT_PREVIEW_COUNT),
       score: state.score,
-      level: state.level,
       lines: state.lines,
-      goal: state.goal,
+      gravityG: gravityForElapsedMs(state.elapsedMs),
+      marginMsRemaining,
+      marginElapsedMs,
       combo: state.combo,
       b2bChain: state.b2bChain,
       lastClearFeedback: state.lastClearFeedback ? { ...state.lastClearFeedback } : null,

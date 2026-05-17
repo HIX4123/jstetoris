@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BOARD_HEIGHT,
   BOARD_WIDTH,
+  TETRA_LEAGUE_GRAVITY_MARGIN_MS,
+  TETRA_LEAGUE_MAX_GRAVITY_G,
   createGameEngine,
   createShuffledBag,
-  gravityForLevel,
-  levelGoalLines,
-  linesToLevel,
+  gravityForElapsedMs,
 } from './engine';
 
 import type { GameAction, GameEngine, PieceType } from './types';
@@ -73,19 +73,27 @@ describe('engine helpers', () => {
     expect(new Set(bag).size).toBe(7);
   });
 
-  it('converts lines to level and goal correctly', () => {
-    expect(linesToLevel(0)).toBe(1);
-    expect(linesToLevel(149)).toBe(15);
-    expect(linesToLevel(150)).toBe(16);
-
-    expect(levelGoalLines(1)).toBe(10);
-    expect(levelGoalLines(15)).toBe(150);
-    expect(levelGoalLines(16)).toBe(160);
+  it('uses TETRA LEAGUE elapsed-time gravity', () => {
+    expect(gravityForElapsedMs(0)).toBe(0.02);
+    expect(gravityForElapsedMs(TETRA_LEAGUE_GRAVITY_MARGIN_MS - 1)).toBe(0.02);
+    expect(gravityForElapsedMs(TETRA_LEAGUE_GRAVITY_MARGIN_MS + 1000)).toBeCloseTo(0.0235);
+    expect(gravityForElapsedMs(Number.MAX_SAFE_INTEGER)).toBe(TETRA_LEAGUE_MAX_GRAVITY_G);
   });
 
-  it('increases gravity after level 15', () => {
-    expect(gravityForLevel(16)).toBeGreaterThan(gravityForLevel(15));
-    expect(gravityForLevel(17)).toBeGreaterThan(gravityForLevel(16));
+  it('keeps gravity based on elapsed time instead of cleared lines', () => {
+    const engine = createGameEngine({
+      initialBoard: createAlmostQuadBoard(),
+      random: () => 0.999,
+    });
+
+    expect(engine.dispatch({ type: 'start' })).toBe(true);
+    const initialGravity = engine.getSnapshot().gravityG;
+    expect(engine.dispatch({ type: 'rotateCW' })).toBe(true);
+    expect(engine.dispatch({ type: 'hardDrop' })).toBe(true);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.lines).toBe(4);
+    expect(snapshot.gravityG).toBe(initialGravity);
   });
 
   it('resets grounded lock delay at most 15 times', () => {

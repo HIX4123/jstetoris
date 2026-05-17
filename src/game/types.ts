@@ -34,7 +34,6 @@ export interface LeaderboardEntry {
   id: string;
   name: string;
   score: number;
-  level: number;
   lines: number;
   createdAt: number;
 }
@@ -70,7 +69,6 @@ export interface AttackBreakdown {
 }
 
 export interface ScoringEvent {
-  level: number;
   lines: number;
   tspin: TSpinType;
   b2bActive: boolean;
@@ -124,9 +122,10 @@ export interface GameSnapshot {
   hold: PieceType | null;
   next: PieceType[];
   score: number;
-  level: number;
   lines: number;
-  goal: number;
+  gravityG: number;
+  marginMsRemaining: number;
+  marginElapsedMs: number;
   combo: number;
   b2bChain: number;
   lastClearFeedback: ClearFeedback | null;

@@ -47,11 +47,10 @@ const normalizeLeaderboardEntry = (value: unknown): LeaderboardEntry | null => {
 
   const id = typeof value.id === 'string' ? value.id.trim() : '';
   const score = normalizeInteger(value.score, 0);
-  const level = normalizeInteger(value.level, 1);
   const lines = normalizeInteger(value.lines, 0);
   const createdAt = normalizeInteger(value.createdAt, 0);
 
-  if (!id || score === null || level === null || lines === null || createdAt === null) {
+  if (!id || score === null || lines === null || createdAt === null) {
     return null;
   }
 
@@ -59,7 +58,6 @@ const normalizeLeaderboardEntry = (value: unknown): LeaderboardEntry | null => {
     id,
     name: normalizeLeaderboardName(value.name),
     score,
-    level,
     lines,
     createdAt,
   };

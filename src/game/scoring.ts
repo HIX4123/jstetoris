@@ -109,13 +109,12 @@ export const keepsBackToBack = (lines: number, tspin: TSpinType, perfectClear = 
 };
 
 export const calculateScore = (event: ScoringEvent): ScoreBreakdown => {
-  const level = Math.max(event.level, 1);
-  const base = getBaseScore(event.lines, event.tspin) * level;
+  const base = getBaseScore(event.lines, event.tspin);
   const difficult = isDifficultClear(event.lines, event.tspin);
   const keepsB2B = keepsBackToBack(event.lines, event.tspin, event.perfectClear);
   const b2bBonus = difficult && event.b2bActive ? Math.floor(base * 0.5) : 0;
-  const comboBonus = event.lines > 0 && event.combo > 0 ? event.combo * 50 * level : 0;
-  const allClearBonus = event.perfectClear && event.lines > 0 ? ALL_CLEAR_SCORE * level : 0;
+  const comboBonus = event.lines > 0 && event.combo > 0 ? event.combo * 50 : 0;
+  const allClearBonus = event.perfectClear && event.lines > 0 ? ALL_CLEAR_SCORE : 0;
   const dropBonus = event.softDropCells + event.hardDropCells * 2;
   const total = base + b2bBonus + comboBonus + allClearBonus + dropBonus;
 

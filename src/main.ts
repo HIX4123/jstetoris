@@ -19,7 +19,6 @@ import type { GameStatus, LeaderboardEntry } from './game/types';
 
 interface LeaderboardCandidate {
   score: number;
-  level: number;
   lines: number;
 }
 
@@ -67,7 +66,6 @@ renderer.bindControls({
       id: createLeaderboardId(),
       name,
       score: leaderboardCandidate.score,
-      level: leaderboardCandidate.level,
       lines: leaderboardCandidate.lines,
       createdAt,
     };
@@ -107,7 +105,6 @@ const loop = (timestamp: number): void => {
   if (justGameOver && qualifiesForLeaderboard(leaderboard, snapshot.score)) {
     leaderboardCandidate = {
       score: snapshot.score,
-      level: snapshot.level,
       lines: snapshot.lines,
     };
     renderer.showLeaderboardPrompt(snapshot.score);

@@ -5,8 +5,35 @@ import { attemptSrsPlusRotation, getKickTests } from './srsPlus';
 import type { PieceType, Point, Rotation } from '../types';
 
 const cellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => {
-  if (pieceType !== 'T') {
-    return [];
+  if (pieceType === 'S') {
+    const cells: Record<Rotation, Point[]> = {
+      0: [
+        { x: 1, y: 0 },
+        { x: 2, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ],
+      1: [
+        { x: 1, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 1 },
+        { x: 2, y: 2 },
+      ],
+      2: [
+        { x: 1, y: 1 },
+        { x: 2, y: 1 },
+        { x: 0, y: 2 },
+        { x: 1, y: 2 },
+      ],
+      3: [
+        { x: 0, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+        { x: 1, y: 2 },
+      ],
+    };
+
+    return cells[rotation];
   }
 
   const cells: Record<Rotation, Point[]> = {
@@ -36,7 +63,7 @@ const cellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] =>
     ],
   };
 
-  return cells[rotation];
+  return pieceType === 'T' ? cells[rotation] : [];
 };
 
 describe('SRS+ rotation', () => {
@@ -59,5 +86,52 @@ describe('SRS+ rotation', () => {
 
     expect(result.success).toBe(true);
     expect(result.rotation).toBe(1);
+  });
+
+  it('does not include downward 180 kicks for vertical S piece states', () => {
+    const clockwiseVerticalKicks = getKickTests('S', 1, '180');
+    const counterClockwiseVerticalKicks = getKickTests('S', 3, '180');
+
+    expect(clockwiseVerticalKicks.every((kick) => kick.y >= 0)).toBe(true);
+    expect(counterClockwiseVerticalKicks.every((kick) => kick.y >= 0)).toBe(true);
+  });
+
+  it('applies the same vertical 180 down-kick restriction to other JLSTZ pieces', () => {
+    const otherPieces: PieceType[] = ['T', 'Z'];
+
+    for (const pieceType of otherPieces) {
+      expect(getKickTests(pieceType, 1, '180').every((kick) => kick.y >= 0)).toBe(true);
+      expect(getKickTests(pieceType, 3, '180').every((kick) => kick.y >= 0)).toBe(true);
+    }
+  });
+
+  it('does not down-kick an S piece into an SRS-X-style 180 tuck', () => {
+    const boardWithoutActive = [
+      '..........',
+      '..####....',
+      '#..#######',
+      '##.#######',
+    ];
+
+    const result = attemptSrsPlusRotation({
+      pieceType: 'S',
+      x: 0,
+      y: 0,
+      rotation: 3,
+      direction: '180',
+      cellsFor,
+      isBlocked: (x, y) =>
+        x < 0 ||
+        x >= 10 ||
+        y >= boardWithoutActive.length ||
+        (y >= 0 && boardWithoutActive[y][x] === '#'),
+    });
+
+    expect(result).not.toMatchObject({
+      success: true,
+      x: 0,
+      y: 1,
+      rotation: 1,
+    });
   });
 });

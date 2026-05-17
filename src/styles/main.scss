@@ -317,6 +317,66 @@ button {
   font-size: 0.9rem;
 }
 
+.controls-help {
+  min-width: 0;
+  border-top: 1px solid var(--line-soft);
+  margin-top: 0.1rem;
+  padding-top: 0.55rem;
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+}
+
+.controls-help h2 {
+  font-size: 0.9rem;
+}
+
+.controls-help-list {
+  margin: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.controls-help-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(5.8rem, 1fr) minmax(0, auto);
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.controls-help-row dt {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.controls-help-row dd {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.18rem;
+}
+
+.controls-help kbd {
+  min-width: 1.55rem;
+  border: 1px solid var(--line);
+  border-bottom-width: 0.16rem;
+  border-radius: 0.28rem;
+  padding: 0.08rem 0.28rem 0.1rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .settings-panel label {
   font-size: 0.82rem;
   color: var(--muted);
@@ -648,6 +708,15 @@ button {
 @media (max-width: 640px) {
   .side-panel {
     grid-template-columns: 1fr;
+  }
+
+  .controls-help-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.18rem;
+  }
+
+  .controls-help-row dd {
+    justify-content: flex-start;
   }
 
   .stats-hud-score {

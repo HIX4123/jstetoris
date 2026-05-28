@@ -1,22 +1,33 @@
 import { NEXT_PREVIEW_COUNT } from './engine';
+import { GAME_MODE_LABELS, GAME_MODE_RECORD_METRICS, isGameModeId } from './modes';
 import { handlingRanges } from './storage';
 
-import type { ClearFeedback, GameSnapshot, HandlingConfig, LeaderboardEntry, PieceType, Point } from './types';
+import type {
+  ClearFeedback,
+  GameModeId,
+  GameSnapshot,
+  HandlingConfig,
+  LeaderboardCandidate,
+  LeaderboardEntry,
+  PieceType,
+  Point,
+} from './types';
 
 interface RendererBindings {
   onStart: () => void;
   onPause: () => void;
   onRestart: () => void;
+  onModeChange: (mode: GameModeId) => void;
   onHandlingChange: (handling: HandlingConfig) => void;
   onLeaderboardSubmit: (name: string) => void;
 }
 
 export interface GameRenderer {
-  render: (snapshot: GameSnapshot, highScore: number) => void;
+  render: (snapshot: GameSnapshot, bestMetric: number | null) => void;
   bindControls: (bindings: RendererBindings) => void;
   setHandlingInputs: (handling: HandlingConfig) => void;
-  renderLeaderboard: (entries: LeaderboardEntry[]) => void;
-  showLeaderboardPrompt: (score: number) => void;
+  renderLeaderboard: (mode: GameModeId, entries: LeaderboardEntry[]) => void;
+  showLeaderboardPrompt: (candidate: LeaderboardCandidate) => void;
 }
 
 const PREVIEW_CELLS: Record<PieceType, Point[]> = {
@@ -136,11 +147,34 @@ const formatTimer = (ms: number, rounding: 'ceil' | 'floor'): string => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
+const formatStopwatch = (ms: number): string => {
+  const normalizedMs = Math.max(0, Math.floor(ms));
+  const totalSeconds = Math.floor(normalizedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const millis = normalizedMs % 1000;
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(3, '0')}`;
+};
+
 const formatGravity = (gravityG: number): string =>
   `${gravityG < 1 ? gravityG.toFixed(3) : gravityG.toFixed(2)}G`;
 
 const formatMargin = (remainingMs: number, elapsedMs: number): string =>
   remainingMs > 0 ? formatTimer(remainingMs, 'ceil') : `+${formatTimer(elapsedMs, 'floor')}`;
+
+const formatMetric = (mode: GameModeId, value: number | null): string => {
+  if (value === null) {
+    return '-';
+  }
+
+  return GAME_MODE_RECORD_METRICS[mode] === 'time' ? formatStopwatch(value) : `${value}`;
+};
+
+const formatCandidateMetric = (candidate: LeaderboardCandidate): string =>
+  GAME_MODE_RECORD_METRICS[candidate.mode] === 'time'
+    ? formatStopwatch(candidate.elapsedMs)
+    : `${candidate.score}`;
 
 export const createRenderer = (): GameRenderer => {
   const boardGrid = document.querySelector<HTMLDivElement>('#board-grid');
@@ -149,19 +183,31 @@ export const createRenderer = (): GameRenderer => {
 
   const scoreValue = document.querySelector<HTMLElement>('#score-value');
   const highScoreValue = document.querySelector<HTMLElement>('#high-score-value');
+  const primaryStatLabel = document.querySelector<HTMLElement>('#primary-stat-label');
+  const bestLabel = document.querySelector<HTMLElement>('#best-label');
+  const gravityRow = document.querySelector<HTMLElement>('#stat-gravity-row');
+  const linesRow = document.querySelector<HTMLElement>('#stat-lines-row');
+  const marginRow = document.querySelector<HTMLElement>('#stat-margin-row');
+  const gravityLabel = document.querySelector<HTMLElement>('#gravity-label');
   const gravityValue = document.querySelector<HTMLElement>('#gravity-value');
+  const linesLabel = document.querySelector<HTMLElement>('#lines-label');
   const linesValue = document.querySelector<HTMLElement>('#lines-value');
+  const marginLabel = document.querySelector<HTMLElement>('#margin-label');
   const marginValue = document.querySelector<HTMLElement>('#margin-value');
   const clearToast = document.querySelector<HTMLElement>('#clear-toast');
   const comboToast = document.querySelector<HTMLElement>('#combo-toast');
   const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
   const perfectClearToast = document.querySelector<HTMLElement>('#perfect-clear-toast');
   const leaderboardList = document.querySelector<HTMLOListElement>('#leaderboard-list');
+  const leaderboardTitle = document.querySelector<HTMLElement>('#leaderboard-title');
+  const leaderboardSubtitle = document.querySelector<HTMLElement>('#leaderboard-subtitle');
   const leaderboardPrompt = document.querySelector<HTMLElement>('#leaderboard-prompt');
+  const leaderboardPromptScoreLabel = document.querySelector<HTMLElement>('#leaderboard-prompt-score-label');
   const leaderboardPromptScore = document.querySelector<HTMLElement>('#leaderboard-prompt-score');
   const leaderboardForm = document.querySelector<HTMLFormElement>('#leaderboard-form');
   const leaderboardNameInput = document.querySelector<HTMLInputElement>('#leaderboard-name-input');
 
+  const modeButtons = [...document.querySelectorAll<HTMLButtonElement>('.mode-option')];
   const startButton = document.querySelector<HTMLButtonElement>('#start-btn');
   const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn');
   const restartButton = document.querySelector<HTMLButtonElement>('#restart-btn');
@@ -176,18 +222,30 @@ export const createRenderer = (): GameRenderer => {
     !holdGrid ||
     !scoreValue ||
     !highScoreValue ||
+    !primaryStatLabel ||
+    !bestLabel ||
+    !gravityRow ||
+    !linesRow ||
+    !marginRow ||
+    !gravityLabel ||
     !gravityValue ||
+    !linesLabel ||
     !linesValue ||
+    !marginLabel ||
     !marginValue ||
     !clearToast ||
     !comboToast ||
     !b2bToast ||
     !perfectClearToast ||
     !leaderboardList ||
+    !leaderboardTitle ||
+    !leaderboardSubtitle ||
     !leaderboardPrompt ||
+    !leaderboardPromptScoreLabel ||
     !leaderboardPromptScore ||
     !leaderboardForm ||
     !leaderboardNameInput ||
+    modeButtons.length !== 3 ||
     !startButton ||
     !pauseButton ||
     !restartButton ||
@@ -240,8 +298,9 @@ export const createRenderer = (): GameRenderer => {
     leaderboardNameInput.value = '';
   };
 
-  const showLeaderboardPrompt = (score: number): void => {
-    setText(leaderboardPromptScore, `${score}`);
+  const showLeaderboardPrompt = (candidate: LeaderboardCandidate): void => {
+    setText(leaderboardPromptScoreLabel, GAME_MODE_RECORD_METRICS[candidate.mode] === 'time' ? 'Time' : 'Score');
+    setText(leaderboardPromptScore, formatCandidateMetric(candidate));
     leaderboardNameInput.value = '';
     leaderboardPrompt.hidden = false;
     window.requestAnimationFrame(() => {
@@ -250,8 +309,10 @@ export const createRenderer = (): GameRenderer => {
     });
   };
 
-  const renderLeaderboard = (entries: LeaderboardEntry[]): void => {
+  const renderLeaderboard = (mode: GameModeId, entries: LeaderboardEntry[]): void => {
     const fragment = document.createDocumentFragment();
+    setText(leaderboardTitle, `${GAME_MODE_LABELS[mode]} Records`);
+    setText(leaderboardSubtitle, GAME_MODE_RECORD_METRICS[mode] === 'time' ? 'Best Times' : 'Top 20');
 
     for (let index = 0; index < LEADERBOARD_LIMIT; index += 1) {
       const entry = entries[index];
@@ -268,11 +329,15 @@ export const createRenderer = (): GameRenderer => {
 
       const score = document.createElement('span');
       score.className = 'leaderboard-score';
-      score.textContent = entry ? `${entry.score}` : '-';
+      score.textContent = entry ? formatMetric(mode, GAME_MODE_RECORD_METRICS[mode] === 'time' ? entry.elapsedMs : entry.score) : '-';
 
       const detail = document.createElement('span');
       detail.className = 'leaderboard-detail';
-      detail.textContent = entry ? `${entry.lines}L` : '';
+      detail.textContent = entry
+        ? GAME_MODE_RECORD_METRICS[mode] === 'time'
+          ? `${entry.lines}L · ${entry.score} pts`
+          : `${entry.lines}L · ${formatStopwatch(entry.elapsedMs)}`
+        : '';
 
       item.append(rank, name, score, detail);
       fragment.append(item);
@@ -327,6 +392,14 @@ export const createRenderer = (): GameRenderer => {
   });
 
   const bindControls = (bindings: RendererBindings): void => {
+    for (const button of modeButtons) {
+      button.addEventListener('click', () => {
+        if (isGameModeId(button.dataset.mode)) {
+          bindings.onModeChange(button.dataset.mode);
+        }
+      });
+    }
+
     startButton.addEventListener('click', bindings.onStart);
     pauseButton.addEventListener('click', bindings.onPause);
     restartButton.addEventListener('click', bindings.onRestart);
@@ -358,7 +431,66 @@ export const createRenderer = (): GameRenderer => {
     });
   };
 
-  const render = (snapshot: GameSnapshot, highScore: number): void => {
+  const setMiniRow = (
+    row: HTMLElement,
+    labelNode: HTMLElement,
+    valueNode: HTMLElement,
+    label: string,
+    value: string,
+    hidden = false,
+  ): void => {
+    row.hidden = hidden;
+
+    if (!hidden) {
+      setText(labelNode, label);
+      setText(valueNode, value);
+    }
+  };
+
+  const renderHud = (snapshot: GameSnapshot, bestMetric: number | null): void => {
+    if (snapshot.mode === 'fortyLines') {
+      setText(primaryStatLabel, 'Time');
+      setText(scoreValue, formatStopwatch(snapshot.elapsedMs));
+      setText(bestLabel, 'Best Time');
+      setText(highScoreValue, formatMetric(snapshot.mode, bestMetric));
+      setMiniRow(gravityRow, gravityLabel, gravityValue, 'Lines Left', `${snapshot.linesRemaining ?? 0}`);
+      setMiniRow(linesRow, linesLabel, linesValue, 'Gravity', formatGravity(snapshot.gravityG));
+      setMiniRow(marginRow, marginLabel, marginValue, 'Margin', '', true);
+      return;
+    }
+
+    if (snapshot.mode === 'blitz') {
+      setText(primaryStatLabel, 'Score');
+      setText(scoreValue, `${snapshot.score}`);
+      setText(bestLabel, 'High Score');
+      setText(highScoreValue, formatMetric(snapshot.mode, bestMetric));
+      setMiniRow(gravityRow, gravityLabel, gravityValue, 'Time Left', formatTimer(snapshot.timeRemainingMs ?? 0, 'ceil'));
+      setMiniRow(linesRow, linesLabel, linesValue, 'Level', `${snapshot.level}`);
+      setMiniRow(marginRow, marginLabel, marginValue, 'Lines', `${snapshot.lines}`);
+      return;
+    }
+
+    setText(primaryStatLabel, 'Score');
+    setText(scoreValue, `${snapshot.score}`);
+    setText(bestLabel, 'High Score');
+    setText(highScoreValue, formatMetric(snapshot.mode, bestMetric));
+    setMiniRow(gravityRow, gravityLabel, gravityValue, 'Gravity', formatGravity(snapshot.gravityG));
+    setMiniRow(linesRow, linesLabel, linesValue, 'Lines', `${snapshot.lines}`);
+    setMiniRow(marginRow, marginLabel, marginValue, 'Margin', formatMargin(snapshot.marginMsRemaining, snapshot.marginElapsedMs));
+  };
+
+  const renderModeButtons = (snapshot: GameSnapshot): void => {
+    const locked = snapshot.status === 'running' || snapshot.status === 'paused';
+
+    for (const button of modeButtons) {
+      const active = button.dataset.mode === snapshot.mode;
+      button.classList.toggle('is-active', active);
+      button.disabled = locked;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  };
+
+  const render = (snapshot: GameSnapshot, bestMetric: number | null): void => {
     const now = performance.now();
     const locked = new Array<PieceType | null>(200).fill(null);
     const ghostMask = new Array<boolean>(200).fill(false);
@@ -408,18 +540,19 @@ export const createRenderer = (): GameRenderer => {
 
     paintPreview(holdCells, snapshot.hold);
 
-    if (snapshot.score > prevScore) {
+    if (snapshot.score < prevScore) {
+      prevScore = snapshot.score;
+    }
+
+    if (snapshot.resultMetric === 'score' && snapshot.score > prevScore) {
       restartAnimation(scoreValue, 'is-score-popping');
     }
 
-    setText(scoreValue, `${snapshot.score}`);
-    setText(highScoreValue, `${highScore}`);
-    setText(gravityValue, formatGravity(snapshot.gravityG));
-    setText(linesValue, `${snapshot.lines}`);
-    setText(marginValue, formatMargin(snapshot.marginMsRemaining, snapshot.marginElapsedMs));
+    renderModeButtons(snapshot);
+    renderHud(snapshot, bestMetric);
     boardGrid.classList.toggle('is-paused', snapshot.status === 'paused');
 
-    if (snapshot.status !== 'gameover' && !leaderboardPrompt.hidden) {
+    if (snapshot.status !== 'gameover' && snapshot.status !== 'completed' && !leaderboardPrompt.hidden) {
       hideLeaderboardPrompt();
     }
 

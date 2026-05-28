@@ -10,14 +10,23 @@
       <main class="layout">
         <aside class="side-panel side-panel-left" aria-label="왼쪽 정보 패널">
           <section class="stats-hud" aria-label="점수 패널">
-            <p class="stats-hud-title">Score</p>
+            <p id="primary-stat-label" class="stats-hud-title">Score</p>
             <p class="stats-hud-score"><span id="score-value">0</span></p>
-            <p class="stats-hud-high-score">High Score <span id="high-score-value">0</span></p>
+            <p class="stats-hud-high-score"><span id="best-label">High Score</span> <span id="high-score-value">0</span></p>
             <div class="stats-divider" aria-hidden="true"></div>
             <div class="stats-mini-list">
-              <p class="stats-mini-item">Gravity <span id="gravity-value">0.020G</span></p>
-              <p class="stats-mini-item">Lines <span id="lines-value">0</span></p>
-              <p class="stats-mini-item">Margin <span id="margin-value">2:00</span></p>
+              <p id="stat-gravity-row" class="stats-mini-item">
+                <span id="gravity-label">Gravity</span>
+                <span id="gravity-value">0.020G</span>
+              </p>
+              <p id="stat-lines-row" class="stats-mini-item">
+                <span id="lines-label">Lines</span>
+                <span id="lines-value">0</span>
+              </p>
+              <p id="stat-margin-row" class="stats-mini-item">
+                <span id="margin-label">Margin</span>
+                <span id="margin-value">2:00</span>
+              </p>
             </div>
           </section>
 
@@ -31,6 +40,15 @@
 
             <label for="sdf-input">SDF (G)</label>
             <input id="sdf-input" type="number" step="0.5" />
+          </section>
+
+          <section class="panel-card mode-panel" aria-label="게임 모드">
+            <h2>Mode</h2>
+            <div id="mode-toggle" class="mode-toggle" role="group" aria-label="게임 모드 선택">
+              <button class="mode-option" type="button" data-mode="marathon">Marathon</button>
+              <button class="mode-option" type="button" data-mode="fortyLines">40 Lines</button>
+              <button class="mode-option" type="button" data-mode="blitz">BLITZ</button>
+            </div>
           </section>
         </aside>
 
@@ -46,7 +64,10 @@
             <form id="leaderboard-form" class="leaderboard-form">
               <p class="leaderboard-prompt-kicker">Top 20</p>
               <h2>New Record</h2>
-              <p class="leaderboard-prompt-score">Score <span id="leaderboard-prompt-score">0</span></p>
+              <p class="leaderboard-prompt-score">
+                <span id="leaderboard-prompt-score-label">Score</span>
+                <span id="leaderboard-prompt-score">0</span>
+              </p>
               <label for="leaderboard-name-input">Name</label>
               <div class="leaderboard-submit-row">
                 <input
@@ -136,8 +157,8 @@
       <aside class="leaderboard-dock" aria-label="리더보드">
         <section class="leaderboard-panel">
           <header class="leaderboard-header">
-            <h2>Leaderboard</h2>
-            <p>Top 20</p>
+            <h2 id="leaderboard-title">Leaderboard</h2>
+            <p id="leaderboard-subtitle">Top 20</p>
           </header>
           <ol id="leaderboard-list" class="leaderboard-list"></ol>
         </section>

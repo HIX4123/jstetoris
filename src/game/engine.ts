@@ -1,3 +1,9 @@
+import {
+  BLITZ_DURATION_MS,
+  DEFAULT_GAME_MODE,
+  FORTY_LINES_TARGET,
+  GAME_MODE_RECORD_METRICS,
+} from './modes';
 import { attemptSrsPlusRotation } from './rotation/srsPlus';
 import { blitzLevelForLines, calculateAttack, calculateScore, keepsBackToBack } from './scoring';
 import { DEFAULT_HANDLING, normalizeHandling } from './storage';
@@ -8,6 +14,7 @@ import type {
   EngineConfig,
   GameAction,
   GameEngine,
+  GameModeId,
   GameSnapshot,
   GameStatus,
   PieceType,
@@ -34,12 +41,30 @@ export const TETRA_LEAGUE_GRAVITY_INCREASE_G_PER_SECOND = 0.0035;
 export const TETRA_LEAGUE_MAX_GRAVITY_G = 20;
 export const TETRA_LEAGUE_GRAVITY_MARGIN_MS = TETRA_LEAGUE_GRAVITY_MARGIN_FRAMES * FRAME_MS;
 export const MARATHON_GRAVITY_INCREASE_SCALE = 10;
+const BLITZ_GRAVITY_BY_LEVEL_G = [
+  0,
+  0.0167,
+  0.0259,
+  0.0412,
+  0.067,
+  0.111,
+  0.189,
+  0.33,
+  0.588,
+  1.08,
+  2.01,
+  3.87,
+  7.62,
+  15.4,
+  20,
+];
 
 const PIECE_ORDER: PieceType[] = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
 
 type Board = (PieceType | null)[][];
 
 interface InternalState {
+  mode: GameModeId;
   status: GameStatus;
   board: Board;
   active: ActivePiece | null;
@@ -289,6 +314,19 @@ export const gravityForElapsedMs = (elapsedMs: number): number => {
   return Math.min(gravity, TETRA_LEAGUE_MAX_GRAVITY_G);
 };
 
+export const blitzGravityForLevel = (level: number): number => {
+  const normalizedLevel = Math.max(1, Math.floor(level));
+  return BLITZ_GRAVITY_BY_LEVEL_G[normalizedLevel] ?? TETRA_LEAGUE_MAX_GRAVITY_G;
+};
+
+const gravityForState = (state: InternalState): number => {
+  if (state.mode === 'blitz') {
+    return blitzGravityForLevel(blitzLevelForLines(state.lines));
+  }
+
+  return gravityForElapsedMs(state.elapsedMs);
+};
+
 const pieceCellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => PIECE_CELLS[pieceType][rotation];
 
 const getAbsoluteCells = (piece: ActivePiece): Point[] =>
@@ -430,7 +468,9 @@ const createInitialState = (
   random: () => number,
   handling = DEFAULT_HANDLING,
   initialBoard?: (PieceType | null)[][],
+  mode: GameModeId = DEFAULT_GAME_MODE,
 ): InternalState => ({
+  mode,
   status: 'ready',
   board: createBoardFromRows(initialBoard),
   active: null,
@@ -458,6 +498,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     config?.random ?? Math.random,
     normalizeHandling(config?.handling ?? {}),
     config?.initialBoard,
+    config?.mode ?? DEFAULT_GAME_MODE,
   );
 
   const fillQueue = (targetLength: number): void => {
@@ -494,11 +535,23 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     return true;
   };
 
+  const resetToReady = (mode = state.mode): void => {
+    state = createInitialState(state.random, state.handling, config?.initialBoard, mode);
+    fillQueue(NEXT_PREVIEW_COUNT + 1);
+  };
+
   const resetForNewRun = (): void => {
-    state = createInitialState(state.random, state.handling, config?.initialBoard);
+    state = createInitialState(state.random, state.handling, config?.initialBoard, state.mode);
     fillQueue(NEXT_PREVIEW_COUNT + 1);
     spawnFromQueue();
     state.status = 'running';
+  };
+
+  const completeRun = (): void => {
+    state.active = null;
+    state.status = 'completed';
+    state.softDropActive = false;
+    state.gravityCarry = 0;
   };
 
   const maybeResetLockTimer = (): void => {
@@ -630,6 +683,11 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     state.canHold = true;
     state.gravityCarry = 0;
 
+    if (state.mode === 'fortyLines' && state.lines >= FORTY_LINES_TARGET) {
+      completeRun();
+      return;
+    }
+
     spawnFromQueue();
   };
 
@@ -752,6 +810,15 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       return true;
     }
 
+    if (action.type === 'setMode') {
+      if (state.status === 'running' || state.status === 'paused') {
+        return false;
+      }
+
+      resetToReady(action.payload);
+      return true;
+    }
+
     if (action.type === 'restart') {
       resetForNewRun();
       return true;
@@ -763,7 +830,7 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
         return true;
       }
 
-      if (state.status === 'ready' || state.status === 'gameover') {
+      if (state.status === 'ready' || state.status === 'gameover' || state.status === 'completed') {
         resetForNewRun();
         return true;
       }
@@ -797,9 +864,15 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       return;
     }
 
-    state.elapsedMs += dtMs;
+    const nextElapsedMs = state.elapsedMs + dtMs;
+    state.elapsedMs = state.mode === 'blitz' ? Math.min(nextElapsedMs, BLITZ_DURATION_MS) : nextElapsedMs;
 
-    const gravity = gravityForElapsedMs(state.elapsedMs);
+    if (state.mode === 'blitz' && nextElapsedMs >= BLITZ_DURATION_MS) {
+      completeRun();
+      return;
+    }
+
+    const gravity = gravityForState(state);
     const effectiveGravity = state.softDropActive ? Math.max(gravity, state.handling.sdfG) : gravity;
     state.gravityCarry += (effectiveGravity * dtMs) / FRAME_MS;
 
@@ -848,8 +921,11 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
 
     const marginElapsedMs = Math.max(0, state.elapsedMs - TETRA_LEAGUE_GRAVITY_MARGIN_MS);
     const marginMsRemaining = Math.max(0, TETRA_LEAGUE_GRAVITY_MARGIN_MS - state.elapsedMs);
+    const level = blitzLevelForLines(state.lines);
 
     return {
+      mode: state.mode,
+      resultMetric: GAME_MODE_RECORD_METRICS[state.mode],
       status: state.status,
       boardVisible: visibleBoard,
       activeCells,
@@ -859,7 +935,12 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       next: state.queue.slice(0, NEXT_PREVIEW_COUNT),
       score: state.score,
       lines: state.lines,
-      gravityG: gravityForElapsedMs(state.elapsedMs),
+      level,
+      elapsedMs: state.elapsedMs,
+      timeRemainingMs: state.mode === 'blitz' ? Math.max(0, BLITZ_DURATION_MS - state.elapsedMs) : null,
+      linesRemaining:
+        state.mode === 'fortyLines' ? Math.max(0, FORTY_LINES_TARGET - state.lines) : null,
+      gravityG: gravityForState(state),
       marginMsRemaining,
       marginElapsedMs,
       combo: state.combo,

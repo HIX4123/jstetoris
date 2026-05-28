@@ -2,7 +2,11 @@ export type PieceType = 'I' | 'O' | 'T' | 'S' | 'Z' | 'J' | 'L';
 
 export type Rotation = 0 | 1 | 2 | 3;
 
-export type GameStatus = 'ready' | 'running' | 'paused' | 'gameover';
+export type GameStatus = 'ready' | 'running' | 'paused' | 'gameover' | 'completed';
+
+export type GameModeId = 'marathon' | 'fortyLines' | 'blitz';
+
+export type GameRecordMetric = 'score' | 'time';
 
 export type TSpinType = 'none' | 'mini' | 'full';
 
@@ -32,10 +36,19 @@ export interface HandlingConfig {
 
 export interface LeaderboardEntry {
   id: string;
+  mode: GameModeId;
   name: string;
   score: number;
   lines: number;
+  elapsedMs: number;
   createdAt: number;
+}
+
+export interface LeaderboardCandidate {
+  mode: GameModeId;
+  score: number;
+  lines: number;
+  elapsedMs: number;
 }
 
 export interface GameConfig {
@@ -43,6 +56,7 @@ export interface GameConfig {
 }
 
 export interface EngineConfig {
+  mode?: GameModeId;
   handling?: Partial<HandlingConfig>;
   random?: () => number;
   initialBoard?: (PieceType | null)[][];
@@ -112,9 +126,12 @@ export type GameAction =
   | { type: 'rotate180' }
   | { type: 'hardDrop' }
   | { type: 'hold' }
+  | { type: 'setMode'; payload: GameModeId }
   | { type: 'setHandling'; payload: HandlingConfig };
 
 export interface GameSnapshot {
+  mode: GameModeId;
+  resultMetric: GameRecordMetric;
   status: GameStatus;
   boardVisible: (PieceType | null)[][];
   activeCells: Point[];
@@ -124,6 +141,10 @@ export interface GameSnapshot {
   next: PieceType[];
   score: number;
   lines: number;
+  level: number;
+  elapsedMs: number;
+  timeRemainingMs: number | null;
+  linesRemaining: number | null;
   gravityG: number;
   marginMsRemaining: number;
   marginElapsedMs: number;

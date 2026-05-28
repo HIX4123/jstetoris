@@ -9,6 +9,7 @@ import {
   createShuffledBag,
   gravityForElapsedMs,
 } from './engine';
+import { BLITZ_DURATION_MS, FORTY_LINES_TARGET } from './modes';
 
 import type { GameAction, GameEngine, PieceType } from './types';
 
@@ -51,6 +52,18 @@ const createBlitzLevelMultiplierBoard = (): (PieceType | null)[][] => {
     for (let x = 0; x < BOARD_WIDTH; x += 1) {
       board[y][x] = x === 4 || x === 5 ? null : 'O';
     }
+  }
+
+  return board;
+};
+
+const createFortyLinesCompletionBoard = (): (PieceType | null)[][] => {
+  const board = Array.from({ length: BOARD_HEIGHT }, () =>
+    Array.from({ length: BOARD_WIDTH }, () => 'O' as PieceType | null),
+  );
+
+  for (let x = 3; x <= 6; x += 1) {
+    board[19][x] = null;
   }
 
   return board;
@@ -109,6 +122,63 @@ describe('engine helpers', () => {
     const snapshot = engine.getSnapshot();
     expect(snapshot.lines).toBe(4);
     expect(snapshot.gravityG).toBe(initialGravity);
+  });
+
+  it('completes 40 Lines after clearing the target line count', () => {
+    const engine = createGameEngine({
+      mode: 'fortyLines',
+      initialBoard: createFortyLinesCompletionBoard(),
+      random: () => 0.999,
+    });
+
+    expect(engine.dispatch({ type: 'start' })).toBe(true);
+    expectActiveType(engine, 'I');
+    expect(engine.dispatch({ type: 'hardDrop' })).toBe(true);
+
+    const snapshot = engine.getSnapshot();
+    expect(snapshot.status).toBe('completed');
+    expect(snapshot.lines).toBe(FORTY_LINES_TARGET);
+    expect(snapshot.linesRemaining).toBe(0);
+    expect(snapshot.activeType).toBeNull();
+  });
+
+  it('ends BLITZ when the two minute timer expires', () => {
+    const engine = createGameEngine({
+      mode: 'blitz',
+      random: () => 0,
+    });
+
+    expect(engine.dispatch({ type: 'start' })).toBe(true);
+    engine.tick(BLITZ_DURATION_MS - 1);
+    expect(engine.getSnapshot().status).toBe('running');
+
+    engine.tick(1);
+    const completed = engine.getSnapshot();
+    expect(completed.status).toBe('completed');
+    expect(completed.elapsedMs).toBe(BLITZ_DURATION_MS);
+    expect(completed.timeRemainingMs).toBe(0);
+
+    engine.tick(1000);
+    expect(engine.getSnapshot().elapsedMs).toBe(BLITZ_DURATION_MS);
+    expect(engine.dispatch({ type: 'moveLeft' })).toBe(false);
+  });
+
+  it('locks mode changes while running or paused', () => {
+    const engine = createGameEngine({
+      random: () => 0,
+    });
+
+    expect(engine.getSnapshot().mode).toBe('marathon');
+    expect(engine.dispatch({ type: 'setMode', payload: 'fortyLines' })).toBe(true);
+    expect(engine.getSnapshot().mode).toBe('fortyLines');
+
+    expect(engine.dispatch({ type: 'start' })).toBe(true);
+    expect(engine.dispatch({ type: 'setMode', payload: 'blitz' })).toBe(false);
+    expect(engine.getSnapshot().mode).toBe('fortyLines');
+
+    expect(engine.dispatch({ type: 'togglePause' })).toBe(true);
+    expect(engine.dispatch({ type: 'setMode', payload: 'blitz' })).toBe(false);
+    expect(engine.getSnapshot().mode).toBe('fortyLines');
   });
 
   it('resets grounded lock delay at most 15 times', () => {

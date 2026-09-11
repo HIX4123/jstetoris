@@ -26,7 +26,6 @@
     "pdfkit": "^0.17.2",
     "prettier": "^3.7.4",
     "ripgrep-bin": "^13.0.0",
-    "sass": "^1.97.2",
     "shiki": "^4.0.0",
     "terser": "^5.46.0",
     "typescript": "~5.9.3",

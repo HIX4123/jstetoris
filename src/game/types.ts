@@ -23,7 +23,6 @@ export interface ActivePiece {
   lockDelayMs: number;
   lockResets: number;
   lastAction: 'none' | 'move' | 'rotate';
-  lastKickIndex: number | null;
   softDropCells: number;
   hardDropCells: number;
 }
@@ -51,10 +50,6 @@ export interface LeaderboardCandidate {
   elapsedMs: number;
 }
 
-export interface GameConfig {
-  handling: HandlingConfig;
-}
-
 export interface EngineConfig {
   mode?: GameModeId;
   handling?: Partial<HandlingConfig>;
@@ -79,7 +74,6 @@ export interface AttackBreakdown {
   surgeAttack: number;
   total: number;
   difficult: boolean;
-  keepsB2B: boolean;
 }
 
 export interface ScoringEvent {
@@ -101,7 +95,6 @@ export interface ScoreBreakdown {
   dropBonus: number;
   total: number;
   difficult: boolean;
-  keepsB2B: boolean;
 }
 
 export interface ClearFeedback {
@@ -151,7 +144,6 @@ export interface GameSnapshot {
   combo: number;
   b2bChain: number;
   lastClearFeedback: ClearFeedback | null;
-  handling: HandlingConfig;
 }
 
 export interface GameEngine {

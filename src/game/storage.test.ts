@@ -5,13 +5,11 @@ import {
   insertLeaderboardEntry,
   loadBestMetric,
   loadHandling,
-  loadHighScore,
   loadLeaderboard,
   normalizeHandling,
   qualifiesForLeaderboard,
   saveBestMetric,
   saveHandling,
-  saveHighScore,
   saveLeaderboard,
 } from './storage';
 
@@ -101,8 +99,8 @@ describe('storage helpers', () => {
   });
 
   it('saves and loads high score as non-negative integer', () => {
-    saveHighScore(9876.9);
-    expect(loadHighScore()).toBe(9876);
+    saveBestMetric('marathon', 9876.9);
+    expect(loadBestMetric('marathon')).toBe(9876);
   });
 
   it('saves and loads best times for 40 Lines', () => {
@@ -114,7 +112,7 @@ describe('storage helpers', () => {
 
   it('falls back to 0 for invalid high score payload', () => {
     globalThis.localStorage.setItem('tetris_high_score_v1', 'NaN');
-    expect(loadHighScore()).toBe(0);
+    expect(loadBestMetric('marathon')).toBe(0);
   });
 
   it('sorts and roundtrips leaderboard entries by score then age', () => {

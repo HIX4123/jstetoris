@@ -170,26 +170,6 @@ class PdfLineRenderer {
   }
 }
 
-async function listFilesRecursively(rootDir) {
-  const entries = await readdir(rootDir, { withFileTypes: true });
-  const files = await Promise.all(
-    entries.map(async (entry) => {
-      const entryPath = path.join(rootDir, entry.name);
-      if (entry.isDirectory()) {
-        return listFilesRecursively(entryPath);
-      }
-
-      if (entry.isFile()) {
-        return [entryPath];
-      }
-
-      return [];
-    }),
-  );
-
-  return files.flat();
-}
-
 function readUtf8Strict(buffer) {
   return UTF8_DECODER.decode(buffer);
 }
@@ -640,7 +620,9 @@ async function generatePdf(textFiles, highlighter) {
 }
 
 async function main() {
-  const filePaths = await listFilesRecursively(DIST_DIR);
+  const filePaths = (await readdir(DIST_DIR, { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(entry.parentPath, entry.name));
   const sortedFilePaths = filePaths.sort((a, b) => a.localeCompare(b));
   const textFiles = [];
 

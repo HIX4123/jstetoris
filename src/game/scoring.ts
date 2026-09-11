@@ -127,7 +127,6 @@ export const calculateScore = (event: ScoringEvent): ScoreBreakdown => {
   const level = Math.max(1, Math.floor(event.level));
   const base = getBaseScore(event.lines, event.tspin) * level;
   const difficult = isDifficultClear(event.lines, event.tspin);
-  const keepsB2B = keepsBackToBack(event.lines, event.tspin, event.perfectClear);
   const b2bBonus = difficult && event.b2bActive ? Math.floor(base * 0.5) : 0;
   const comboBonus = event.lines > 0 && event.combo > 0 ? event.combo * 50 * level : 0;
   const allClearBonus = event.perfectClear && event.lines > 0 ? ALL_CLEAR_SCORE * level : 0;
@@ -142,7 +141,6 @@ export const calculateScore = (event: ScoringEvent): ScoreBreakdown => {
     dropBonus,
     total,
     difficult,
-    keepsB2B,
   };
 };
 
@@ -150,7 +148,6 @@ export const calculateAttack = (event: AttackEvent): AttackBreakdown => {
   const baseAttack = getBaseAttack(event.lines, event.tspin);
   const comboAttack = applyComboMultiplier(baseAttack, event.combo);
   const difficult = isDifficultClear(event.lines, event.tspin);
-  const keepsB2B = keepsBackToBack(event.lines, event.tspin, event.perfectClear);
   const b2bAttack = difficult && event.b2bActive ? 1 : 0;
   const allClearAttack = event.perfectClear && event.lines > 0 ? ALL_CLEAR_ATTACK : 0;
   const surgeAttack = Math.max(0, Math.floor(event.surgeAttack));
@@ -164,6 +161,5 @@ export const calculateAttack = (event: AttackEvent): AttackBreakdown => {
     surgeAttack,
     total,
     difficult,
-    keepsB2B,
   };
 };

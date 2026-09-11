@@ -210,28 +210,11 @@ export const normalizeHandling = (partial: Partial<HandlingConfig>): HandlingCon
   ),
 });
 
-export const loadHandling = (): HandlingConfig => {
-  try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-
-    if (!raw) {
-      return { ...DEFAULT_HANDLING };
-    }
-
-    const parsed = JSON.parse(raw) as Partial<HandlingConfig>;
-    return normalizeHandling(parsed);
-  } catch {
-    return { ...DEFAULT_HANDLING };
-  }
-};
+export const loadHandling = (): HandlingConfig =>
+  normalizeHandling((readJson(STORAGE_KEY) ?? {}) as Partial<HandlingConfig>);
 
 export const saveHandling = (handling: HandlingConfig): void => {
-  try {
-    const normalized = normalizeHandling(handling);
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(normalized));
-  } catch {
-    // Storage failure should not break gameplay.
-  }
+  writeJson(STORAGE_KEY, normalizeHandling(handling));
 };
 
 export const loadBestMetric = (mode: GameModeId): number | null => {
@@ -268,12 +251,6 @@ export const isBetterMetric = (mode: GameModeId, value: number, current: number 
   }
 
   return GAME_MODE_RECORD_METRICS[mode] === 'time' ? normalized < current : normalized > current;
-};
-
-export const loadHighScore = (mode: GameModeId = DEFAULT_GAME_MODE): number => loadBestMetric(mode) ?? 0;
-
-export const saveHighScore = (score: number, mode: GameModeId = DEFAULT_GAME_MODE): void => {
-  saveBestMetric(mode, score);
 };
 
 export const loadLeaderboard = (mode: GameModeId = DEFAULT_GAME_MODE): LeaderboardEntry[] => loadLeaderboards()[mode];

@@ -1,4 +1,4 @@
-import { NEXT_PREVIEW_COUNT } from './engine';
+import { NEXT_PREVIEW_COUNT, pieceCellsFor } from './engine';
 import { GAME_MODE_LABELS, GAME_MODE_RECORD_METRICS, isGameModeId } from './modes';
 import { handlingRanges } from './storage';
 
@@ -10,7 +10,6 @@ import type {
   LeaderboardCandidate,
   LeaderboardEntry,
   PieceType,
-  Point,
 } from './types';
 
 interface RendererBindings {
@@ -29,51 +28,6 @@ export interface GameRenderer {
   renderLeaderboard: (mode: GameModeId, entries: LeaderboardEntry[]) => void;
   showLeaderboardPrompt: (candidate: LeaderboardCandidate) => void;
 }
-
-const PREVIEW_CELLS: Record<PieceType, Point[]> = {
-  I: [
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-    { x: 3, y: 1 },
-  ],
-  O: [
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-    { x: 1, y: 2 },
-    { x: 2, y: 2 },
-  ],
-  T: [
-    { x: 1, y: 0 },
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-  ],
-  S: [
-    { x: 1, y: 0 },
-    { x: 2, y: 0 },
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-  ],
-  Z: [
-    { x: 0, y: 0 },
-    { x: 1, y: 0 },
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-  ],
-  J: [
-    { x: 0, y: 0 },
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-  ],
-  L: [
-    { x: 2, y: 0 },
-    { x: 0, y: 1 },
-    { x: 1, y: 1 },
-    { x: 2, y: 1 },
-  ],
-};
 
 const toneClass = (pieceType: PieceType): string => `tone-${pieceType.toLowerCase()}`;
 const TOAST_DURATION_MS = 1200;
@@ -176,83 +130,55 @@ const formatCandidateMetric = (candidate: LeaderboardCandidate): string =>
     ? formatStopwatch(candidate.elapsedMs)
     : `${candidate.score}`;
 
-export const createRenderer = (): GameRenderer => {
-  const boardGrid = document.querySelector<HTMLDivElement>('#board-grid');
-  const nextGrids = [...document.querySelectorAll<HTMLDivElement>('.next-grid')];
-  const holdGrid = document.querySelector<HTMLDivElement>('#hold-grid');
+const required = <T extends HTMLElement>(selector: string): T => {
+  const node = document.querySelector<T>(selector);
+  if (!node) {
+    throw new Error(`Renderer target is missing: ${selector}`);
+  }
+  return node;
+};
 
-  const scoreValue = document.querySelector<HTMLElement>('#score-value');
-  const highScoreValue = document.querySelector<HTMLElement>('#high-score-value');
-  const primaryStatLabel = document.querySelector<HTMLElement>('#primary-stat-label');
-  const bestLabel = document.querySelector<HTMLElement>('#best-label');
-  const gravityRow = document.querySelector<HTMLElement>('#stat-gravity-row');
-  const linesRow = document.querySelector<HTMLElement>('#stat-lines-row');
-  const marginRow = document.querySelector<HTMLElement>('#stat-margin-row');
-  const gravityLabel = document.querySelector<HTMLElement>('#gravity-label');
-  const gravityValue = document.querySelector<HTMLElement>('#gravity-value');
-  const linesLabel = document.querySelector<HTMLElement>('#lines-label');
-  const linesValue = document.querySelector<HTMLElement>('#lines-value');
-  const marginLabel = document.querySelector<HTMLElement>('#margin-label');
-  const marginValue = document.querySelector<HTMLElement>('#margin-value');
-  const clearToast = document.querySelector<HTMLElement>('#clear-toast');
-  const comboToast = document.querySelector<HTMLElement>('#combo-toast');
-  const b2bToast = document.querySelector<HTMLElement>('#b2b-toast');
-  const perfectClearToast = document.querySelector<HTMLElement>('#perfect-clear-toast');
-  const leaderboardList = document.querySelector<HTMLOListElement>('#leaderboard-list');
-  const leaderboardTitle = document.querySelector<HTMLElement>('#leaderboard-title');
-  const leaderboardSubtitle = document.querySelector<HTMLElement>('#leaderboard-subtitle');
-  const leaderboardPrompt = document.querySelector<HTMLElement>('#leaderboard-prompt');
-  const leaderboardPromptScoreLabel = document.querySelector<HTMLElement>('#leaderboard-prompt-score-label');
-  const leaderboardPromptScore = document.querySelector<HTMLElement>('#leaderboard-prompt-score');
-  const leaderboardForm = document.querySelector<HTMLFormElement>('#leaderboard-form');
-  const leaderboardNameInput = document.querySelector<HTMLInputElement>('#leaderboard-name-input');
+export const createRenderer = (): GameRenderer => {
+  const boardGrid = required<HTMLDivElement>('#board-grid');
+  const nextGrids = [...document.querySelectorAll<HTMLDivElement>('.next-grid')];
+  const holdGrid = required<HTMLDivElement>('#hold-grid');
+
+  const scoreValue = required<HTMLElement>('#score-value');
+  const highScoreValue = required<HTMLElement>('#high-score-value');
+  const primaryStatLabel = required<HTMLElement>('#primary-stat-label');
+  const bestLabel = required<HTMLElement>('#best-label');
+  const gravityRow = required<HTMLElement>('#stat-gravity-row');
+  const linesRow = required<HTMLElement>('#stat-lines-row');
+  const marginRow = required<HTMLElement>('#stat-margin-row');
+  const gravityLabel = required<HTMLElement>('#gravity-label');
+  const gravityValue = required<HTMLElement>('#gravity-value');
+  const linesLabel = required<HTMLElement>('#lines-label');
+  const linesValue = required<HTMLElement>('#lines-value');
+  const marginLabel = required<HTMLElement>('#margin-label');
+  const marginValue = required<HTMLElement>('#margin-value');
+  const clearToast = required<HTMLElement>('#clear-toast');
+  const comboToast = required<HTMLElement>('#combo-toast');
+  const b2bToast = required<HTMLElement>('#b2b-toast');
+  const perfectClearToast = required<HTMLElement>('#perfect-clear-toast');
+  const leaderboardList = required<HTMLOListElement>('#leaderboard-list');
+  const leaderboardTitle = required<HTMLElement>('#leaderboard-title');
+  const leaderboardSubtitle = required<HTMLElement>('#leaderboard-subtitle');
+  const leaderboardPrompt = required<HTMLElement>('#leaderboard-prompt');
+  const leaderboardPromptScoreLabel = required<HTMLElement>('#leaderboard-prompt-score-label');
+  const leaderboardPromptScore = required<HTMLElement>('#leaderboard-prompt-score');
+  const leaderboardForm = required<HTMLFormElement>('#leaderboard-form');
+  const leaderboardNameInput = required<HTMLInputElement>('#leaderboard-name-input');
 
   const modeButtons = [...document.querySelectorAll<HTMLButtonElement>('.mode-option')];
-  const startButton = document.querySelector<HTMLButtonElement>('#start-btn');
-  const pauseButton = document.querySelector<HTMLButtonElement>('#pause-btn');
-  const restartButton = document.querySelector<HTMLButtonElement>('#restart-btn');
+  const startButton = required<HTMLButtonElement>('#start-btn');
+  const pauseButton = required<HTMLButtonElement>('#pause-btn');
+  const restartButton = required<HTMLButtonElement>('#restart-btn');
 
-  const dasInput = document.querySelector<HTMLInputElement>('#das-input');
-  const arrInput = document.querySelector<HTMLInputElement>('#arr-input');
-  const sdfInput = document.querySelector<HTMLInputElement>('#sdf-input');
+  const dasInput = required<HTMLInputElement>('#das-input');
+  const arrInput = required<HTMLInputElement>('#arr-input');
+  const sdfInput = required<HTMLInputElement>('#sdf-input');
 
-  if (
-    !boardGrid ||
-    nextGrids.length !== NEXT_PREVIEW_COUNT ||
-    !holdGrid ||
-    !scoreValue ||
-    !highScoreValue ||
-    !primaryStatLabel ||
-    !bestLabel ||
-    !gravityRow ||
-    !linesRow ||
-    !marginRow ||
-    !gravityLabel ||
-    !gravityValue ||
-    !linesLabel ||
-    !linesValue ||
-    !marginLabel ||
-    !marginValue ||
-    !clearToast ||
-    !comboToast ||
-    !b2bToast ||
-    !perfectClearToast ||
-    !leaderboardList ||
-    !leaderboardTitle ||
-    !leaderboardSubtitle ||
-    !leaderboardPrompt ||
-    !leaderboardPromptScoreLabel ||
-    !leaderboardPromptScore ||
-    !leaderboardForm ||
-    !leaderboardNameInput ||
-    modeButtons.length !== 3 ||
-    !startButton ||
-    !pauseButton ||
-    !restartButton ||
-    !dasInput ||
-    !arrInput ||
-    !sdfInput
-  ) {
+  if (nextGrids.length !== NEXT_PREVIEW_COUNT || modeButtons.length !== 3) {
     throw new Error('Renderer targets are missing');
   }
 
@@ -276,8 +202,9 @@ export const createRenderer = (): GameRenderer => {
       return;
     }
 
-    for (const point of PREVIEW_CELLS[pieceType]) {
-      const index = point.y * 4 + point.x;
+    const offsetY = pieceType === 'O' ? 1 : 0;
+    for (const point of pieceCellsFor(pieceType, 0)) {
+      const index = (point.y + offsetY) * 4 + point.x;
       const cell = cells[index];
       if (!cell) {
         continue;

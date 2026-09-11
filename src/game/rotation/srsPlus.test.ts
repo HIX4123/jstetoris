@@ -1,70 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { pieceCellsFor } from '../engine';
 import { attemptSrsPlusRotation, getKickTests } from './srsPlus';
 
-import type { PieceType, Point, Rotation } from '../types';
-
-const cellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => {
-  if (pieceType === 'S') {
-    const cells: Record<Rotation, Point[]> = {
-      0: [
-        { x: 1, y: 0 },
-        { x: 2, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: 1 },
-      ],
-      1: [
-        { x: 1, y: 0 },
-        { x: 1, y: 1 },
-        { x: 2, y: 1 },
-        { x: 2, y: 2 },
-      ],
-      2: [
-        { x: 1, y: 1 },
-        { x: 2, y: 1 },
-        { x: 0, y: 2 },
-        { x: 1, y: 2 },
-      ],
-      3: [
-        { x: 0, y: 0 },
-        { x: 0, y: 1 },
-        { x: 1, y: 1 },
-        { x: 1, y: 2 },
-      ],
-    };
-
-    return cells[rotation];
-  }
-
-  const cells: Record<Rotation, Point[]> = {
-    0: [
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-      { x: 2, y: 1 },
-    ],
-    1: [
-      { x: 1, y: 0 },
-      { x: 1, y: 1 },
-      { x: 2, y: 1 },
-      { x: 1, y: 2 },
-    ],
-    2: [
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-      { x: 2, y: 1 },
-      { x: 1, y: 2 },
-    ],
-    3: [
-      { x: 1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 1, y: 1 },
-      { x: 1, y: 2 },
-    ],
-  };
-
-  return pieceType === 'T' ? cells[rotation] : [];
-};
+import type { PieceType } from '../types';
 
 describe('SRS+ rotation', () => {
   it('provides kick tests for I piece', () => {
@@ -80,7 +19,7 @@ describe('SRS+ rotation', () => {
       y: 18,
       rotation: 0,
       direction: 'cw',
-      cellsFor,
+      cellsFor: pieceCellsFor,
       isBlocked: (x, y) => x < 0 || x >= 10 || y >= 40,
     });
 
@@ -119,7 +58,7 @@ describe('SRS+ rotation', () => {
       y: 0,
       rotation: 3,
       direction: '180',
-      cellsFor,
+      cellsFor: pieceCellsFor,
       isBlocked: (x, y) =>
         x < 0 ||
         x >= 10 ||

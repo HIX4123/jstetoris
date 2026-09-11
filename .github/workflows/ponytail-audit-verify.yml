@@ -1,0 +1,38 @@
+name: Verify ponytail cleanup
+on:
+  push:
+    branches:
+      - codex/ponytail-audit-434086d-20260911
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Refresh dependency lockfile
+        run: npm uninstall --save-dev sass --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Record lockfile changes
+        run: |
+          node --input-type=commonjs <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const before = JSON.parse(execFileSync('git', ['show', 'HEAD:package-lock.json'], { encoding: 'utf8' }));
+          const after = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          assert.deepEqual({ ...before, packages: null }, { ...after, packages: null });
+          assert.equal(after.packages[''].devDependencies.sass, undefined);
+          assert.equal(after.packages['node_modules/sass'], undefined);
+          const keys = new Set([...Object.keys(before.packages), ...Object.keys(after.packages)]);
+          const changes = Object.fromEntries([...keys]
+            .filter(key => JSON.stringify(before.packages[key]) !== JSON.stringify(after.packages[key]))
+            .map(key => [key, after.packages[key] ?? null]));
+          console.log('AUDIT_LOCK_PATCH=' + JSON.stringify(changes));
+          NODE
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build:pdf

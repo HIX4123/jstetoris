@@ -73,7 +73,6 @@ interface InternalState {
   queue: PieceType[];
   bag: PieceType[];
   score: number;
-  attackSent: number;
   lines: number;
   elapsedMs: number;
   combo: number;
@@ -327,7 +326,7 @@ const gravityForState = (state: InternalState): number => {
   return gravityForElapsedMs(state.elapsedMs);
 };
 
-const pieceCellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => PIECE_CELLS[pieceType][rotation];
+export const pieceCellsFor = (pieceType: PieceType, rotation: Rotation): readonly Point[] => PIECE_CELLS[pieceType][rotation];
 
 const getAbsoluteCells = (piece: ActivePiece): Point[] =>
   pieceCellsFor(piece.type, piece.rotation).map((cell) => ({ x: piece.x + cell.x, y: piece.y + cell.y }));
@@ -340,7 +339,6 @@ const createActivePiece = (pieceType: PieceType): ActivePiece => ({
   lockDelayMs: 0,
   lockResets: 0,
   lastAction: 'none',
-  lastKickIndex: null,
   softDropCells: 0,
   hardDropCells: 0,
 });
@@ -439,24 +437,15 @@ const detectTSpin = (board: Board, piece: ActivePiece): TSpinType => {
 };
 
 const clearLines = (board: Board): number => {
-  const filledRows: number[] = [];
+  const remainingRows = board.filter((row) => row.some((cell) => cell === null));
+  const cleared = board.length - remainingRows.length;
 
-  for (let y = 0; y < BOARD_HEIGHT; y += 1) {
-    if (board[y].every((cell) => cell !== null)) {
-      filledRows.push(y);
-    }
+  if (cleared > 0) {
+    const emptyRows = Array.from({ length: cleared }, createEmptyRow);
+    board.splice(0, board.length, ...emptyRows, ...remainingRows);
   }
 
-  if (filledRows.length === 0) {
-    return 0;
-  }
-
-  const filledRowSet = new Set(filledRows);
-  const remainingRows = board.filter((_, rowIndex) => !filledRowSet.has(rowIndex));
-  const emptyRows = Array.from({ length: filledRows.length }, () => createEmptyRow());
-  board.splice(0, BOARD_HEIGHT, ...emptyRows, ...remainingRows);
-
-  return filledRows.length;
+  return cleared;
 };
 
 const isPerfectClear = (board: Board): boolean => board.every((row) => row.every((cell) => cell === null));
@@ -479,7 +468,6 @@ const createInitialState = (
   queue: [],
   bag: [],
   score: 0,
-  attackSent: 0,
   lines: 0,
   elapsedMs: 0,
   combo: -1,
@@ -593,7 +581,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
 
     state.active.x = next.x;
     state.active.y = next.y;
-    state.active.lastKickIndex = null;
 
     if (dy !== 0) {
       state.active.lastAction = 'none';
@@ -652,7 +639,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     });
 
     state.score += scoreBreakdown.total;
-    state.attackSent += attackBreakdown.total;
 
     if (linesCleared > 0) {
       if (perfectClear) {
@@ -727,7 +713,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
     state.active.y = result.y;
     state.active.rotation = result.rotation;
     state.active.lastAction = 'rotate';
-    state.active.lastKickIndex = result.kickIndex;
 
     if (wasGrounded) {
       maybeResetLockTimer();
@@ -946,7 +931,6 @@ export const createGameEngine = (config?: EngineConfig): GameEngine => {
       combo: state.combo,
       b2bChain: state.b2bChain,
       lastClearFeedback: state.lastClearFeedback ? { ...state.lastClearFeedback } : null,
-      handling: { ...state.handling },
     };
   };
 

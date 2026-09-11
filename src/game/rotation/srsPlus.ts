@@ -17,7 +17,6 @@ export interface RotationResult {
   x: number;
   y: number;
   rotation: Rotation;
-  kickIndex: number | null;
 }
 
 type KickMap = Record<string, readonly Point[]>;
@@ -275,8 +274,7 @@ export const attemptSrsPlusRotation = ({
   const targetCells = cellsFor(pieceType, targetRotation);
   const kickTests = getKickTests(pieceType, rotation, direction);
 
-  for (let index = 0; index < kickTests.length; index += 1) {
-    const kick = kickTests[index];
+  for (const kick of kickTests) {
     const testX = x + kick.x;
     const testY = y - kick.y;
 
@@ -288,7 +286,6 @@ export const attemptSrsPlusRotation = ({
         x: testX,
         y: testY,
         rotation: targetRotation,
-        kickIndex: index,
       };
     }
   }
@@ -298,6 +295,5 @@ export const attemptSrsPlusRotation = ({
     x,
     y,
     rotation,
-    kickIndex: null,
   };
 };

@@ -1,4 +1,4 @@
-import './styles/main.scss';
+import './styles/main.css';
 
 import { createGameEngine } from './game/engine';
 import { createInputController } from './game/input';
